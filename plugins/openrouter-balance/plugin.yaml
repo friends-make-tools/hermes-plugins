@@ -1,0 +1,7 @@
+name: openrouter-balance
+version: 1.0.0
+description: "Backend for the OpenRouter balance status chip: serves /summary (prepaid balance + 30-day spend) under /api/plugins/openrouter-balance/. Key comes from OPENROUTER_MANAGEMENT_KEY in the Hermes .env."
+author: "plugin-backend-dev"
+kind: standalone
+requires_env:
+  - OPENROUTER_MANAGEMENT_KEY

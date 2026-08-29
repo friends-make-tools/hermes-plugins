@@ -1,0 +1,9 @@
+{
+  "name": "openrouter-balance",
+  "label": "OpenRouter Balance",
+  "description": "Status bar chip: OpenRouter prepaid balance and 30-day spend.",
+  "icon": "Wallet",
+  "version": "1.0.0",
+  "tab": { "hidden": true },
+  "api": "plugin_api.py"
+}
