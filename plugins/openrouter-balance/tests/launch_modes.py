@@ -12,10 +12,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 LOGS = HERE / "logs"
 MODES = [
-    (49701, "success", {}),
-    (49702, "nokey", {"HERMES_HOME": str(HERE / "nokey_home"), "LOCALAPPDATA": str(HERE / "nokey_home"), "OPENROUTER_MANAGEMENT_KEY": ""}),
-    (49703, "e401", {}),
-    (49704, "down", {}),
+    (49801, "success", {}),
+    (49802, "nokey", {"HERMES_HOME": str(HERE / "nokey_home")}),
+    (49803, "e401", {"MOCK_PORT": "49809"}),
+    (49804, "down", {}),
 ]
 
 def pids_file():

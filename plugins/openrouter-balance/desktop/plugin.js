@@ -35,7 +35,23 @@ function hhmm(iso) {
 }
 
 function errText(err) {
-  return err?.message || String(err)
+  // ctx.rest failures arrive as raw `hermes:api` wrapper errors ("Error
+  // invoking remote method 'hermes:api': Error: 404: {json body}"). Strip
+  // the wrapper and surface the backend contract body when one rode along.
+  const raw = err?.message || String(err)
+  const marker = "remote method 'hermes:api':"
+  const at = raw.indexOf(marker)
+  if (at !== -1) {
+    const inner = raw.slice(at + marker.length).trim()
+    try {
+      const body = JSON.parse(inner.replace(/^Error:\s*\d+:\s*/, ''))
+      if (body?.error) return `backend: ${body.error}`
+    } catch {
+      // Body was not JSON (HTML error page, empty, truncated) — keep the text.
+    }
+    return inner.replace(/^Error:\s*\d+:\s*/, '') || raw
+  }
+  return raw
 }
 
 // R3/R4: tooltip carries values, last-updated time, the window note, and any
