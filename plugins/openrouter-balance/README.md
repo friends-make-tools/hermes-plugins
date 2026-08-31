@@ -160,8 +160,7 @@ the repo copy by SHA-256. Run it after deploying an update.
    cp -r plugins/openrouter-balance "$LOCALAPPDATA/hermes/plugins/"
    ```
 
-3. Run `tests/hash_check_backend.py` (after fixing its repo path) or
-   re-run the mode rig.
+3. Run `tests/hash_check_backend.py` or re-run the mode rig.
 4. Restart the desktop app or ⌘K → **Reload desktop plugins** for the
    desktop half; the Python backend reloads with the app.
 

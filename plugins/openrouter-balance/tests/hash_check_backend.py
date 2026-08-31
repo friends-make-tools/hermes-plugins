@@ -1,27 +1,56 @@
-"""Verify every deployed plugin_api.py copy matches the repo copy (sha256)."""
+"""Verify every deployed plugin_api.py copy matches the repo copy (sha256).
+
+Paths are derived, not hardcoded: the repo copy is located relative to this
+file, and deployed copies are resolved from $HERMES_HOME (default
+~/.hermes), scanning profiles/ when present.
+"""
 import hashlib
 import os
+from pathlib import Path
 
-repo = r"<REPO>\plugins\openrouter-balance\dashboard\plugin_api.py"
+REPO_FILE = Path(__file__).resolve().parents[1] / "dashboard" / "plugin_api.py"
+
+
+def first_existing_home() -> Path:
+    """Generic Hermes-home resolution: $HERMES_HOME, then the two defaults."""
+    env_home = os.environ.get("HERMES_HOME")
+    candidates = []
+    if env_home:
+        candidates.append(Path(env_home))
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(Path(local_app_data) / "hermes")
+    candidates.append(Path.home() / ".hermes")
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return candidates[-1]
+
+
+hermes_home = first_existing_home()
 roots = [
-    r"<HERMES_HOME>\plugins\openrouter-balance\dashboard\plugin_api.py",
+    hermes_home / "plugins" / "openrouter-balance" / "dashboard" / "plugin_api.py"
 ]
 
-base = r"<HERMES_HOME>\profiles"
-for name in sorted(os.listdir(base)):
-    p = os.path.join(base, name, "plugins", "openrouter-balance", "dashboard", "plugin_api.py")
-    if os.path.isfile(p):
-        roots.append(p)
+profiles_dir = hermes_home / "profiles"
+if profiles_dir.is_dir():
+    for name in sorted(os.listdir(profiles_dir)):
+        p = profiles_dir / name / "plugins" / "openrouter-balance" / "dashboard" / "plugin_api.py"
+        if p.is_file():
+            roots.append(p)
 
-with open(repo, "rb") as f:
-    repo_hash = hashlib.sha256(f.read()).hexdigest()[:12]
+
+def sha12(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+repo_hash = sha12(REPO_FILE)
 
 match = 0
 differ = []
 for p in roots:
     try:
-        with open(p, "rb") as f:
-            h = hashlib.sha256(f.read()).hexdigest()[:12]
+        h = sha12(p)
     except OSError:
         continue
     if h == repo_hash:

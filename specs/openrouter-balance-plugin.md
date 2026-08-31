@@ -3,7 +3,7 @@
 **Status:** Ready for implementation
 **Date:** 2026-08-29 (decisions locked same day)
 **Target surface:** Hermes desktop app status bar (Windows host)
-**Hermes home on this machine:** `<HERMES_HOME>\` (confirmed via `$HERMES_HOME`)
+**Hermes home:** `$HERMES_HOME` (Windows default: `%LOCALAPPDATA%\hermes\`)
 
 ## 1. Problem
 
@@ -125,7 +125,8 @@ $HERMES_HOME/plugins/openrouter-balance/
 1. Create a **new management key** at openrouter.ai/keys, dedicated to this
    plugin (D1). Note: OpenRouter management keys start `sk-or-v1-...` like
    usage keys; the key TYPE is chosen when creating it.
-2. Add to `<HERMES_HOME>\.env`:
+2. Add to `$HERMES_HOME/.env` (Windows default:
+   `%LOCALAPPDATA%\hermes\.env`):
    `OPENROUTER_MANAGEMENT_KEY=sk-or-v1-...`
 3. Enable gates (two, both required — classic "plugin not appearing" trap):
    - `plugins.enabled` in `config.yaml` must include `openrouter-balance`
