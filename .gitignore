@@ -2,6 +2,6 @@
 *.log
 __pycache__/
 .DS_Store
-tests/nokey_home/
-tests/server_pids.txt
-tests/logs/
+**/tests/nokey_home/
+**/tests/server_pids.txt
+**/tests/logs/
