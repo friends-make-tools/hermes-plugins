@@ -13,6 +13,8 @@ Click the chip to open `https://openrouter.ai/activity` in your browser.
 Hover for a tooltip: balance, lifetime purchased, lifetime used, 30-day
 spend, last-updated time, and any refresh error.
 
+![Status bar chip showing OR $13.94 · 30d $10.83, with the hover tooltip: Balance $13.94 · Purchased $25.00 · Used $11.06 · 30-day spend $10.83 · Last updated 22:56 · 30-day window excludes today](demo.png)
+
 ## How it works
 
 | Part | File | Role |
