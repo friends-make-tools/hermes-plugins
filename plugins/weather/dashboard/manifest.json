@@ -1,0 +1,9 @@
+{
+  "name": "weather",
+  "label": "Weather",
+  "description": "Current conditions, forecasts, and official Canadian alerts.",
+  "icon": "CloudSun",
+  "version": "1.0.0",
+  "tab": { "hidden": true },
+  "api": "plugin_api.py"
+}

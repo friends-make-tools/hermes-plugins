@@ -16,6 +16,7 @@ under `AppData\Local\hermes\plugins\`.
 | Plugin | What it does | Docs |
 |---|---|---|
 | `openrouter-balance` | Status bar chip: OpenRouter prepaid balance and 30-day spend. | [plugins/openrouter-balance/README.md](plugins/openrouter-balance/README.md) |
+| `weather` | Status chip and popover: forecasts plus official Canadian alerts. | [plugins/weather/README.md](plugins/weather/README.md) |
 
 ## Plugin anatomy
 
