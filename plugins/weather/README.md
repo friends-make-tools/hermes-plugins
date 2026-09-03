@@ -1,5 +1,7 @@
 # Weather
 
+https://github.com/user-attachments/assets/eee64f3a-fa43-43d4-9611-39f9dc562897
+
 This unified Hermes plugin adds a weather chip to `statusBar.right`.
 The chip opens a responsive square native popover.
 Explicit inline dimensions keep the popover square in uncompiled desktop plugins.
