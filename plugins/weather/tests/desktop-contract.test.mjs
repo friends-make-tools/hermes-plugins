@@ -109,23 +109,24 @@ test('honors notification settings and severe baseline', () => {
   assert.match(source, /pluginCtx\.os\.notify/)
 })
 
-test('shows only the active view and defaults to Current', () => {
-  assert.match(source, /const \[activeView, setActiveView\] = useState\(['"]current['"]\)/)
+test('shows only the active view and defaults to Forecast', () => {
+  assert.match(source, /const \[activeView, setActiveView\] = useState\(['"]forecast['"]\)/)
   assert.match(source, /switch \(activeView\)/)
   assert.match(source, /children:\s*activePanel/)
 })
 
-test('shows native buttons for all six weather views', () => {
+test('shows native buttons for exactly four weather views', () => {
+  const viewDefinitions = source.slice(source.indexOf('const views = ['), source.indexOf('const SEVERITY_RANK'))
   for (const [id, label] of [
-    ['current', 'Current'],
-    ['hourly', 'Hourly'],
-    ['daily', 'Daily'],
+    ['forecast', 'Forecast'],
     ['alerts', 'Alerts'],
     ['details', 'Details'],
     ['settings', 'Settings']
   ]) {
-    assert.match(source, new RegExp(`id: ['"]${id}['"], label: ['"]${label}['"], icon: ['"][^'"]+['"]`))
+    assert.match(viewDefinitions, new RegExp(`id: ['"]${id}['"], label: ['"]${label}['"], icon: ['"][^'"]+['"]`))
   }
+  assert.equal((viewDefinitions.match(/\bid:/g) || []).length, 4)
+  assert.doesNotMatch(viewDefinitions, /id: ['"](?:current|hourly|daily)['"]/)
   assert.match(source, /views\.map\(view => jsxs\(Button/)
   assert.match(source, /onClick: \(\) => setActiveView\(view\.id\)/)
   assert.match(source, /role: ['"]tab['"]/)
@@ -138,17 +139,15 @@ test('keeps the bottom tab bar on one horizontal line', () => {
   const tabBar = weatherChip.slice(weatherChip.indexOf("const tabBar = jsx('nav'"), weatherChip.indexOf("const panel = jsxs('div'"))
 
   assert.match(tabBar, /className: ['"][^'"]*flex-nowrap[^'"]*overflow-hidden[^'"]*['"]/)
-  assert.match(tabBar, /className: ['"][^'"]*min-w-0[^'"]*flex-1[^'"]*whitespace-nowrap[^'"]*['"]/)
+  assert.match(tabBar, /className: ['"][^'"]*min-w-0[^'"]*flex-1[^'"]*text-xs[^'"]*whitespace-nowrap[^'"]*['"]/)
   assert.match(tabBar, /jsx\(Codicon, \{ name: view\.icon/)
   assert.doesNotMatch(tabBar, /grid-cols-|flex-wrap/)
 })
 
-test('routes all six weather views through the shared ScrollArea', () => {
+test('routes all four weather views through the shared ScrollArea', () => {
   const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
   const cases = [
-    ['current', 'CurrentConditions'],
-    ['hourly', 'HourlyForecast'],
-    ['daily', 'DailyForecast'],
+    ['forecast', 'Forecast'],
     ['alerts', 'Alerts'],
     ['details', 'Details'],
     ['settings', 'Settings']
@@ -156,8 +155,9 @@ test('routes all six weather views through the shared ScrollArea', () => {
   for (const [view, component] of cases) {
     assert.match(weatherChip, new RegExp(`case ['"]${view}['"]:[\\s\\S]*?activePanel = jsx\\(${component},`))
   }
-  assert.match(weatherChip, /const viewContent = !settings\.location && activeView === ['"]current['"][\s\S]*?children: activePanel/)
+  assert.match(weatherChip, /const viewContent = !settings\.location && activeView === ['"]forecast['"][\s\S]*?children: activePanel/)
   assert.match(weatherChip, /jsx\(ScrollArea, \{[\s\S]*?children: viewContent/)
+  assert.doesNotMatch(weatherChip, /case ['"](?:current|hourly|daily)['"]:/)
 })
 
 test('keeps location controls in a distinct Settings view', () => {
@@ -165,8 +165,8 @@ test('keeps location controls in a distinct Settings view', () => {
   assert.match(settingsView, /jsx\(LocationSetup/)
   assert.match(settingsView, /Remove location/)
   assert.match(source, /case ['"]settings['"]:[\s\S]*?activePanel = jsx\(Settings,/)
-  const currentCase = source.slice(source.indexOf("case 'current':"), source.indexOf('const viewContent ='))
-  assert.doesNotMatch(currentCase, /Settings|LocationSetup|Remove location/)
+  const forecastView = source.slice(source.indexOf('function Forecast'), source.indexOf('function Details'))
+  assert.doesNotMatch(forecastView, /Settings|LocationSetup|Remove location/)
 })
 
 test('orders a fixed header, bounded shared body, attribution, and bottom tabs', () => {
@@ -183,17 +183,51 @@ test('orders a fixed header, bounded shared body, attribution, and bottom tabs',
   assert.doesNotMatch(weatherChip, /VIEW_BODY_CLASS|max-h-/)
 })
 
-test('shows setup current hourly daily details settings and refresh controls', () => {
-  for (const label of ['Choose location', 'Current conditions', 'Next 24 hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh weather']) {
+test('shows setup combined forecast details settings and refresh controls', () => {
+  for (const label of ['Choose location', 'Current forecast', 'Next six hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh weather']) {
     assert.ok(source.includes(label), `missing UI label: ${label}`)
   }
 })
 
-test('daily rows show rain amount probability wind and gust', () => {
-  const daily = source.slice(source.indexOf('function DailyForecast'), source.indexOf('function Details'))
-  for (const field of ['precipitationProbability', 'precipitation', 'windSpeed', 'windGust']) {
+test('Forecast combines a current hero, metrics, six hours, and seven days', () => {
+  const forecast = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function Details'))
+
+  assert.match(forecast, /function CurrentHero/)
+  for (const field of ['icon', 'temperature', 'condition', 'apparentTemperature']) {
+    assert.ok(forecast.includes(`current.${field}`), `current hero omits ${field}`)
+  }
+  assert.match(forecast, /function CurrentMetrics/)
+  for (const field of ['precipitation', 'humidity', 'windSpeed']) {
+    assert.ok(forecast.includes(`current.${field}`), `current metrics omit ${field}`)
+  }
+  assert.match(forecast, /function NextSixHours/)
+  assert.match(forecast, /\.slice\(0, 6\)/)
+  assert.match(forecast, /grid grid-cols-6/)
+  assert.match(forecast, /function SevenDayForecast/)
+  assert.match(forecast, /\.slice\(0, 7\)/)
+  assert.match(forecast, /whitespace-nowrap/)
+  assert.match(forecast, /function Forecast/)
+  assert.match(forecast, /jsx\(CurrentHero/)
+  assert.match(forecast, /jsx\(CurrentMetrics/)
+  assert.match(forecast, /jsx\(NextSixHours/)
+  assert.match(forecast, /jsx\(SevenDayForecast/)
+})
+
+test('shows hourly rain only for finite numeric probabilities', () => {
+  const helper = source.slice(source.indexOf('function isFiniteNumber'), source.indexOf('function dayName'))
+  const hourly = source.slice(source.indexOf('function NextSixHours'), source.indexOf('function SevenDayForecast'))
+
+  assert.match(helper, /typeof value === ['"]number['"] && Number\.isFinite\(value\)/)
+  assert.match(hourly, /isFiniteNumber\(item\.precipitationProbability\)/)
+})
+
+test('daily rows show high low rain and wind on one compact line', () => {
+  const daily = source.slice(source.indexOf('function SevenDayForecast'), source.indexOf('function Forecast'))
+  for (const field of ['temperatureMax', 'temperatureMin', 'precipitationProbability', 'precipitation', 'windSpeed']) {
     assert.ok(daily.includes(`item.${field}`), `daily rows omit ${field}`)
   }
+  assert.match(daily, /text-xs/)
+  assert.doesNotMatch(daily, /text-\[0\.6875rem\]/)
 })
 
 test('shows one-line dynamic active-provider attribution with accessible source links', () => {

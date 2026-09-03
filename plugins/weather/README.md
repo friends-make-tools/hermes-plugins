@@ -5,21 +5,23 @@ The chip opens a responsive square native popover.
 Explicit inline dimensions keep the popover square in uncompiled desktop plugins.
 A full-height flex shell and bounded `ScrollArea` also use inline geometry.
 Critical geometry does not depend on Tailwind arbitrary classes.
-A fixed six-item bottom tab bar shows one view at a time:
+A fixed four-item bottom tab bar shows one view at a time:
 
-- Current conditions
-- The next 24 hours
-- A seven-day forecast
+- A combined Forecast with current conditions, metrics, six hours, and seven days
 - Official Canadian weather alerts
 - Weather details
 - Location, units, refresh, and notification settings
 
-Current is the default view.
+Forecast is the default view.
+Its current hero shows the icon, rounded temperature, condition, and feels-like value.
+A three-cell metrics row shows rain, humidity, and wind.
+Six equal cells show the next six hours in one row.
+Seven dense daily rows show high, low, rain, and wind values.
 An icon-only Refresh control stays in the fixed popover header.
-All six views use one shared bounded and vertically scrolling body.
+All four views use one shared bounded and vertically scrolling body.
 The body fills the space between the fixed header and fixed footer controls.
 Provider attribution stays on one truncated line above the bottom tab bar.
-All six compact icon tabs stay on one horizontal line.
+All four readable icon tabs stay on one horizontal line.
 The first-use view keeps manual location setup compact.
 After setup, location search and removal stay in Settings.
 

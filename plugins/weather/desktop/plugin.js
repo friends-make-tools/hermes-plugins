@@ -30,9 +30,7 @@ const ALERT_STATE_KEY = 'alert-state'
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60]
 const POPOVER_SQUARE_SIZE = 'min(24rem, calc(100vw - 1rem), calc(100vh - 1rem))'
 const views = [
-  { id: 'current', label: 'Current', icon: 'circle-large-outline' },
-  { id: 'hourly', label: 'Hourly', icon: 'history' },
-  { id: 'daily', label: 'Daily', icon: 'calendar' },
+  { id: 'forecast', label: 'Forecast', icon: 'cloud' },
   { id: 'alerts', label: 'Alerts', icon: 'warning' },
   { id: 'details', label: 'Details', icon: 'list-unordered' },
   { id: 'settings', label: 'Settings', icon: 'settings-gear' }
@@ -140,10 +138,28 @@ function temperature(value, units) {
   return `${numberText(value)}°${units === 'imperial' ? 'F' : 'C'}`
 }
 
-function shortTime(value) {
+function formatTime(value, options) {
   const date = value ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return date.toLocaleTimeString([], options)
+}
+
+function shortTime(value) {
+  return formatTime(value, { hour: 'numeric', minute: '2-digit' })
+}
+
+function hourTime(value) {
+  return formatTime(value, { hour: 'numeric' })
+}
+
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function unitLabels(units) {
+  return units === 'imperial'
+    ? { amountUnit: 'in', speedUnit: 'mph' }
+    : { amountUnit: 'mm', speedUnit: 'km/h' }
 }
 
 function dayName(value) {
@@ -277,78 +293,121 @@ function Alerts({ data }) {
   }))
 }
 
-function CurrentConditions({ data, units }) {
-  const current = data?.current
+function CurrentHero({ current, units, error }) {
   if (!current) {
-    return section('Current conditions', jsx('p', {
+    return section('Current forecast', jsx('p', {
       className: 'text-xs text-(--ui-text-secondary)',
-      children: data?.provider?.forecast?.error || 'Forecast unavailable.'
+      children: error || 'Forecast unavailable.'
     }))
   }
-  return section('Current conditions', jsxs('div', {
-    className: 'flex items-center justify-between',
+  return section('Current forecast', jsxs('div', {
+    className: 'grid grid-cols-2 items-center gap-3 rounded-lg border border-(--ui-stroke-secondary) p-3',
     children: [
-      jsxs('div', {
-        children: [
-          jsx('div', { className: 'text-2xl', children: `${current.icon} ${temperature(current.temperature, units)}` }),
-          jsx('div', { className: 'text-xs text-(--ui-text-secondary)', children: current.condition })
-        ]
-      }),
       jsx('div', {
-        className: 'text-right text-xs text-(--ui-text-tertiary)',
-        children: `Feels like ${temperature(current.apparentTemperature, units)}`
+        className: 'text-center text-4xl',
+        'aria-hidden': true,
+        children: current.icon
+      }),
+      jsxs('div', {
+        className: 'min-w-0',
+        children: [
+          jsx('div', { className: 'text-3xl font-semibold tracking-tight', children: temperature(current.temperature, units) }),
+          jsx('div', { className: 'truncate text-sm text-(--ui-text-secondary)', children: current.condition }),
+          jsx('div', {
+            className: 'text-xs text-(--ui-text-tertiary)',
+            children: `Feels like ${temperature(current.apparentTemperature, units)}`
+          })
+        ]
       })
     ]
   }))
 }
 
-function HourlyForecast({ items, units }) {
-  return section('Next 24 hours', jsx('div', {
-    className: 'flex gap-3 overflow-x-auto pb-1',
-    children: (items || []).map(item => jsxs('div', {
-      className: 'flex min-w-14 flex-col items-center gap-1 text-xs',
+function CurrentMetrics({ current, units }) {
+  if (!current) return null
+  const { amountUnit, speedUnit } = unitLabels(units)
+  const metrics = [
+    ['Rain', `${numberText(current.precipitation, 1)} ${amountUnit}`],
+    ['Humidity', `${numberText(current.humidity)}%`],
+    ['Wind', `${numberText(current.windSpeed)} ${speedUnit}`]
+  ]
+  return section('Current metrics', jsx('div', {
+    className: 'grid grid-cols-3 overflow-hidden rounded-md border border-(--ui-stroke-secondary)',
+    children: metrics.map(([label, value]) => jsxs('div', {
+      className: 'flex min-w-0 flex-col items-center gap-0.5 border-r border-(--ui-stroke-secondary) px-1 py-2 text-xs last:border-r-0',
       children: [
-        jsx('span', { className: 'text-(--ui-text-tertiary)', children: shortTime(item.time) }),
-        jsx('span', { children: item.icon }),
-        jsx('span', { children: temperature(item.temperature, units) }),
-        jsx('span', { className: 'text-(--ui-text-tertiary)', children: `${numberText(item.precipitationProbability)}%` })
+        jsx('span', { className: 'text-(--ui-text-tertiary)', children: label }),
+        jsx('strong', { className: 'truncate font-medium text-(--ui-text-primary)', children: value })
+      ]
+    }, label))
+  }))
+}
+
+function NextSixHours({ items, units }) {
+  return section('Next six hours', jsx('div', {
+    className: 'grid grid-cols-6 overflow-hidden rounded-md border border-(--ui-stroke-secondary)',
+    children: (items || []).slice(0, 6).map(item => jsxs('div', {
+      className: 'flex min-w-0 flex-col items-center gap-0.5 border-r border-(--ui-stroke-secondary) px-0.5 py-1.5 text-xs last:border-r-0',
+      children: [
+        jsx('span', { className: 'truncate text-(--ui-text-tertiary)', children: hourTime(item.time) }),
+        jsx('span', { 'aria-hidden': true, children: item.icon }),
+        jsx('span', { className: 'font-medium', children: temperature(item.temperature, units) }),
+        isFiniteNumber(item.precipitationProbability)
+          ? jsx('span', { className: 'text-(--ui-text-tertiary)', children: `${numberText(item.precipitationProbability)}%` })
+          : null
       ]
     }, item.time))
   }))
 }
 
-function DailyForecast({ items, units }) {
-  const speedUnit = units === 'imperial' ? 'mph' : 'km/h'
-  const amountUnit = units === 'imperial' ? 'in' : 'mm'
+function SevenDayForecast({ items, units }) {
+  const { amountUnit, speedUnit } = unitLabels(units)
   return section('Seven-day forecast', jsx('div', {
-    className: 'flex flex-col gap-2',
-    children: (items || []).map(item => jsxs('div', {
-      className: 'rounded-md border border-(--ui-stroke-secondary) p-2',
+    className: 'overflow-hidden rounded-md border border-(--ui-stroke-secondary)',
+    children: (items || []).slice(0, 7).map(item => jsxs('div', {
+      className: 'flex min-w-0 items-center gap-2 whitespace-nowrap border-b border-(--ui-stroke-secondary) px-2 py-1.5 text-xs last:border-b-0',
       children: [
-        jsxs('div', {
-          className: 'grid grid-cols-[3rem_1.5rem_1fr_auto] items-center gap-2 text-xs',
+        jsx('span', { className: 'w-8 shrink-0 font-medium', children: dayName(item.date) }),
+        jsx('span', { className: 'w-5 shrink-0', 'aria-hidden': true, children: item.icon }),
+        jsxs('span', {
+          className: 'w-24 shrink-0',
           children: [
-            jsx('span', { children: dayName(item.date) }),
-            jsx('span', { children: item.icon }),
-            jsx('span', { className: 'truncate text-(--ui-text-secondary)', children: item.condition }),
-            jsx('span', { children: `${temperature(item.temperatureMax, units)} / ${temperature(item.temperatureMin, units)}` })
+            jsx('strong', { className: 'font-medium', children: temperature(item.temperatureMax, units) }),
+            ' / ',
+            jsx('span', { className: 'text-(--ui-text-secondary)', children: temperature(item.temperatureMin, units) })
           ]
         }),
-        jsx('p', {
-          className: 'mt-1 text-[0.6875rem] text-(--ui-text-tertiary)',
-          children: `Rain ${numberText(item.precipitationProbability)}% · ${numberText(item.precipitation, 1)} ${amountUnit} · Wind ${numberText(item.windSpeed)} ${speedUnit} · Gust ${numberText(item.windGust)} ${speedUnit}`
+        jsx('span', {
+          className: 'min-w-0 flex-1 truncate text-(--ui-text-tertiary)',
+          children: `Rain ${numberText(item.precipitationProbability)}% · ${numberText(item.precipitation, 1)} ${amountUnit}`
+        }),
+        jsx('span', {
+          className: 'w-20 shrink-0 text-right text-(--ui-text-secondary)',
+          children: `Wind ${numberText(item.windSpeed)} ${speedUnit}`
         })
       ]
     }, item.date))
   }))
 }
 
+function Forecast({ data, units }) {
+  const current = data?.current
+  return jsxs('div', {
+    className: 'flex flex-col gap-3',
+    children: [
+      jsx(CurrentHero, { current, units, error: data?.provider?.forecast?.error }),
+      jsx(CurrentMetrics, { current, units }),
+      jsx(NextSixHours, { items: data?.hourly, units }),
+      jsx(SevenDayForecast, { items: data?.daily, units })
+    ]
+  })
+}
+
 function Details({ data, units }) {
   const current = data?.current || {}
   const today = data?.daily?.[0] || {}
   const hour = data?.hourly?.[0] || {}
-  const speedUnit = units === 'imperial' ? 'mph' : 'km/h'
-  const amountUnit = units === 'imperial' ? 'in' : 'mm'
+  const { amountUnit, speedUnit } = unitLabels(units)
   return section('Details', jsx('div', {
     className: 'flex flex-col gap-1',
     children: [
@@ -440,7 +499,7 @@ function Settings({ settings, onChange, onSelectLocation, removeLocation }) {
 
 function WeatherChip() {
   const [settings, setSettings] = useState(readSettings)
-  const [activeView, setActiveView] = useState('current')
+  const [activeView, setActiveView] = useState('forecast')
   const locationKey = settings.location
     ? [
         settings.location.latitude,
@@ -501,12 +560,6 @@ function WeatherChip() {
 
   let activePanel = null
   switch (activeView) {
-    case 'hourly':
-      activePanel = jsx(HourlyForecast, { items: data?.hourly, units: settings.units })
-      break
-    case 'daily':
-      activePanel = jsx(DailyForecast, { items: data?.daily, units: settings.units })
-      break
     case 'alerts':
       activePanel = jsx(Alerts, { data })
       break
@@ -521,12 +574,12 @@ function WeatherChip() {
         removeLocation
       })
       break
-    case 'current':
+    case 'forecast':
     default:
-      activePanel = jsx(CurrentConditions, { data, units: settings.units })
+      activePanel = jsx(Forecast, { data, units: settings.units })
   }
 
-  const viewContent = !settings.location && activeView === 'current'
+  const viewContent = !settings.location && activeView === 'forecast'
     ? jsx('div', {
         className: 'p-3',
         children: jsx(LocationSetup, { onSelect: selectLocation })
@@ -612,7 +665,7 @@ function WeatherChip() {
       role: 'tab',
       size: 'sm',
       variant: activeView === view.id ? 'secondary' : 'ghost',
-      className: 'h-auto min-w-0 flex-1 flex-col gap-0.5 px-0.5 py-1 text-[0.625rem] leading-none whitespace-nowrap',
+      className: 'h-auto min-w-0 flex-1 flex-col gap-0.5 px-1 py-1 text-xs leading-none whitespace-nowrap',
       'aria-label': view.label,
       'aria-selected': activeView === view.id,
       'aria-controls': 'weather-active-panel',

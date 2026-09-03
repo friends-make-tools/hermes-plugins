@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.6
+Version: 1.7
 Source plan date: 2026-09-02
 
 ## Decision
@@ -146,26 +146,35 @@ Preserve accessible provider names and links when the visual text truncates.
 
 Show one of these views at a time:
 
-1. Current
-2. Hourly
-3. Daily
-4. Alerts
-5. Details
-6. Settings
+1. Forecast
+2. Alerts
+3. Details
+4. Settings
 
 Use a compact native bottom tab bar with tab semantics for view navigation.
-Keep all six icon-and-label tabs on one horizontal, non-wrapping line.
-Make Current the default view.
+Keep all four icon-and-label tabs on one horizontal, non-wrapping line.
+Use at least `text-xs` for tab labels.
+Make Forecast the default view.
 Keep initial manual location setup in a compact first-use pane.
 After setup, show location search and removal only in Settings.
-Do not put Settings controls in the Current view.
-Render all six views inside one shared `ScrollArea` body.
+Do not put Settings controls in the Forecast view.
+Render all four views inside one shared `ScrollArea` body.
 Give the middle region `min-h-0`, flexible height, and overflow containment.
 Give its `ScrollArea` the full bounded width and height.
 Back the shell, middle-region, and `ScrollArea` geometry with explicit inline styles.
 Use internal vertical scrolling whenever any view exceeds the available middle region.
 Keep the header, attribution, and bottom tab bar outside the scrolling body.
-Keep the Hourly view's horizontal forecast strip inside the shared vertical body.
+
+Combine all forecast layers in the Forecast view.
+Place a balanced current hero first with its icon, rounded temperature, condition, and feels-like value.
+Follow it with three aligned current metrics for rain, humidity, and wind.
+Show the next six hours as six equal compact cells on one row.
+Each hourly cell shows its hour, icon, temperature, and available rain probability.
+Show seven dense, single-line daily rows after the hourly strip.
+Keep day, icon, high and low, rain, and wind in one consistent scan order.
+Use muted theme text for secondary values.
+Use at least `text-xs` for primary compact labels.
+Do not use separate Current, Hourly, or Daily navigation states.
 
 Use one React Query weather query shared by the chip and every view.
 Key it by plugin ID, location coordinates, and units.
@@ -222,7 +231,7 @@ Send coordinates to MET Norway only during forecast fallback.
 ## Verification
 
 Backend tests must cover validation, both forecast normalizers, symbol mapping, fallback behavior, unit conversion, daily aggregation, cache behavior, sanitized failures, response bounds, alert normalization, and provider independence.
-Desktop contract tests must cover identity, status area, square native popover, six-view bottom navigation, one active view, separate Settings, one shared bounded scrolling body, fixed controls outside that body, icon-only refresh, dynamic one-line attribution, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, and theme safety.
+Desktop contract tests must cover identity, status area, square native popover, four-view bottom navigation, Forecast default, the combined forecast layers, separate Settings, one shared bounded scrolling body, fixed controls outside that body, icon-only refresh, dynamic one-line attribution, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, and theme safety.
 
 Run Python tests, Node contract tests, Python compilation, and JavaScript syntax checks.
 Run controlled live location and weather calls when the network allows.
