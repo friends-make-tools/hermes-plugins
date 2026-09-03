@@ -1,8 +1,8 @@
 # Weather
 
 This unified Hermes plugin adds a weather chip to `statusBar.right`.
-The chip opens one compact native popover.
-A six-button row shows one view at a time:
+The chip opens a responsive square native popover.
+A fixed six-item bottom tab bar shows one view at a time:
 
 - Current conditions
 - The next 24 hours
@@ -12,10 +12,11 @@ A six-button row shows one view at a time:
 - Location, units, refresh, and notification settings
 
 Current is the default view.
-Manual refresh stays in the popover header.
-All six views use one shared body with a 16-rem or 55-viewport-height maximum.
-The body scrolls vertically when its active view needs more space.
-The header, view buttons, refresh control, and attribution stay outside that body.
+An icon-only Refresh control stays in the fixed popover header.
+All six views use one shared bounded and vertically scrolling body.
+The body fills the space between the fixed header and fixed footer controls.
+Provider attribution stays on one truncated line above the bottom tab bar.
+All six compact icon tabs stay on one horizontal line.
 The first-use view keeps manual location setup compact.
 After setup, location search and removal stay in Settings.
 

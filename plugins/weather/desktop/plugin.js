@@ -2,6 +2,7 @@
 import {
   Badge,
   Button,
+  Codicon,
   Input,
   Popover,
   PopoverContent,
@@ -27,14 +28,14 @@ const SETTINGS_VERSION = 1
 const SETTINGS_KEY = 'settings'
 const ALERT_STATE_KEY = 'alert-state'
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60]
-const VIEW_BODY_CLASS = 'h-[min(16rem,55vh)] max-h-[min(16rem,55vh)] w-full pr-2'
+const POPOVER_SQUARE_CLASS = 'h-[min(24rem,calc(100vw-1rem),calc(100vh-1rem))] w-[min(24rem,calc(100vw-1rem),calc(100vh-1rem))] p-0'
 const views = [
-  { id: 'current', label: 'Current' },
-  { id: 'hourly', label: 'Hourly' },
-  { id: 'daily', label: 'Daily' },
-  { id: 'alerts', label: 'Alerts' },
-  { id: 'details', label: 'Details' },
-  { id: 'settings', label: 'Settings' }
+  { id: 'current', label: 'Current', icon: 'circle-large-outline' },
+  { id: 'hourly', label: 'Hourly', icon: 'history' },
+  { id: 'daily', label: 'Daily', icon: 'calendar' },
+  { id: 'alerts', label: 'Alerts', icon: 'warning' },
+  { id: 'details', label: 'Details', icon: 'list-unordered' },
+  { id: 'settings', label: 'Settings', icon: 'settings-gear' }
 ]
 const SEVERITY_RANK = { unknown: 0, minor: 1, moderate: 2, severe: 3, extreme: 4 }
 const DEFAULT_SETTINGS = {
@@ -521,77 +522,105 @@ function WeatherChip() {
       activePanel = jsx(CurrentConditions, { data, units: settings.units })
   }
 
-  const activeViewContent = jsx(ScrollArea, {
-    className: VIEW_BODY_CLASS,
-    children: activePanel
-  })
-
-  const panel = jsxs('div', {
-    className: 'w-[min(24rem,calc(100vw-1rem))] p-3',
-    children: [
-      !settings.location ? jsx(ScrollArea, {
-        className: VIEW_BODY_CLASS,
+  const viewContent = !settings.location && activeView === 'current'
+    ? jsx('div', {
+        className: 'p-3',
         children: jsx(LocationSetup, { onSelect: selectLocation })
-      }) : null,
-      settings.location ? jsxs('div', {
-        className: 'flex w-full flex-col gap-3',
+      })
+    : jsxs('div', {
+        className: 'flex flex-col gap-3 p-3',
         children: [
-          jsxs('div', {
-            className: 'flex items-center justify-between gap-2',
-            children: [
-              jsx('strong', { className: 'truncate text-sm', children: settings.location.displayName }),
-              jsx(Button, {
-                type: 'button',
-                size: 'sm',
-                disabled: query.isFetching,
-                onClick: () => void query.refetch(),
-                children: query.isFetching ? 'Refreshing…' : 'Refresh now'
-              })
-            ]
-          }),
           query.isError && data ? jsx('p', {
             className: 'text-xs text-(--ui-text-secondary)',
             children: `Stale data. Last successful update ${shortTime(data.fetchedAt)}.`
           }) : null,
           jsx('div', {
-            role: 'tablist',
-            'aria-label': 'Weather views',
-            className: 'grid grid-cols-3 gap-1',
-            children: views.map(view => jsx(Button, {
-              type: 'button',
-              role: 'tab',
-              size: 'sm',
-              variant: activeView === view.id ? 'secondary' : 'ghost',
-              className: 'h-7 px-2 text-xs',
-              'aria-selected': activeView === view.id,
-              'aria-controls': 'weather-active-panel',
-              onClick: () => setActiveView(view.id),
-              children: view.label
-            }, view.id))
-          }),
-          jsx('div', {
             id: 'weather-active-panel',
             role: 'tabpanel',
             'aria-label': `${activeView} weather view`,
-            className: 'overflow-hidden',
-            children: activeViewContent
-          }),
-          jsx(Separator, {}),
-          jsxs('p', {
-            className: 'text-[0.6875rem] text-(--ui-text-tertiary)',
-            children: [
-              jsx('button', {
-                type: 'button',
-                className: 'underline',
-                onClick: () => void pluginCtx.os.openExternal('https://open-meteo.com/'),
-                children: 'Weather data by Open-Meteo'
-              }),
-              ' · Official Canadian alerts by Environment and Climate Change Canada.'
-            ]
+            children: activePanel
           })
         ]
-      }) : null
+      })
+
+  const header = jsxs('header', {
+    className: 'flex shrink-0 items-center justify-between gap-2 border-b border-(--ui-stroke-secondary) p-3',
+    children: [
+      jsx('strong', {
+        className: 'truncate text-sm',
+        children: settings.location?.displayName || 'Choose location'
+      }),
+      jsx(Button, {
+        type: 'button',
+        variant: 'ghost',
+        size: 'icon',
+        className: 'size-7 shrink-0 p-0',
+        'aria-label': 'Refresh weather',
+        title: 'Refresh weather',
+        disabled: !settings.location || query.isFetching,
+        onClick: () => void query.refetch(),
+        children: jsx(Codicon, { name: 'refresh', size: 14, spinning: query.isFetching })
+      })
     ]
+  })
+
+  const body = jsx('main', {
+    className: 'min-h-0 flex-1 overflow-hidden',
+    children: jsx(ScrollArea, {
+      className: 'h-full w-full',
+      children: viewContent
+    })
+  })
+
+  const attribution = jsx('footer', {
+    className: 'shrink-0 min-w-0 overflow-hidden border-t border-(--ui-stroke-secondary) px-3 py-1',
+    children: jsxs('p', {
+      className: 'text-[0.625rem] text-(--ui-text-tertiary) truncate whitespace-nowrap',
+      title: 'Weather data by Open-Meteo · Official Canadian alerts by Environment and Climate Change Canada',
+      children: [
+        jsx('button', {
+          type: 'button',
+          className: 'underline',
+          'aria-label': 'Open Open-Meteo website',
+          onClick: () => void pluginCtx.os.openExternal('https://open-meteo.com/'),
+          children: 'Weather data by Open-Meteo'
+        }),
+        ' · ',
+        jsx('button', {
+          type: 'button',
+          className: 'underline',
+          'aria-label': 'Open Environment and Climate Change Canada website',
+          onClick: () => void pluginCtx.os.openExternal('https://weather.gc.ca/warnings/index_e.html'),
+          children: 'Official Canadian alerts by Environment and Climate Change Canada'
+        })
+      ]
+    })
+  })
+
+  const tabBar = jsx('nav', {
+    role: 'tablist',
+    'aria-label': 'Weather views',
+    className: 'flex shrink-0 flex-nowrap overflow-hidden border-t border-(--ui-stroke-secondary) p-1',
+    children: views.map(view => jsxs(Button, {
+      type: 'button',
+      role: 'tab',
+      size: 'sm',
+      variant: activeView === view.id ? 'secondary' : 'ghost',
+      className: 'h-auto min-w-0 flex-1 flex-col gap-0.5 px-0.5 py-1 text-[0.625rem] leading-none whitespace-nowrap',
+      'aria-label': view.label,
+      'aria-selected': activeView === view.id,
+      'aria-controls': 'weather-active-panel',
+      onClick: () => setActiveView(view.id),
+      children: [
+        jsx(Codicon, { name: view.icon, size: 14 }),
+        jsx('span', { className: 'truncate', children: view.label })
+      ]
+    }, view.id))
+  })
+
+  const panel = jsxs('div', {
+    className: 'flex h-full min-h-0 flex-col',
+    children: [header, body, attribution, tabBar]
   })
 
   return jsx(Popover, {
@@ -610,7 +639,13 @@ function WeatherChip() {
             children: chipLabel
           })
         }),
-        jsx(PopoverContent, { side: 'top', align: 'end', sideOffset: 6, children: panel })
+        jsx(PopoverContent, {
+          side: 'top',
+          align: 'end',
+          sideOffset: 6,
+          className: POPOVER_SQUARE_CLASS,
+          children: panel
+        })
       ]
     })
   })

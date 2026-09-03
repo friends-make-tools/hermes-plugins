@@ -19,6 +19,17 @@ test('uses a native popover above the chip', () => {
   assert.match(source, /align:\s*['"]end['"]/)
 })
 
+test('sizes PopoverContent as a responsive square', () => {
+  const sizeClass = source.match(/const POPOVER_SQUARE_CLASS = ['"]([^'"]+)['"]/)?.[1]
+  assert.ok(sizeClass, 'missing responsive square size class')
+
+  const height = sizeClass.match(/h-\[([^\]]+)\]/)?.[1]
+  const width = sizeClass.match(/w-\[([^\]]+)\]/)?.[1]
+  assert.equal(height, width)
+  assert.equal(width, 'min(24rem,calc(100vw-1rem),calc(100vh-1rem))')
+  assert.match(source, /jsx\(PopoverContent, \{[\s\S]*?className: POPOVER_SQUARE_CLASS[\s\S]*?children: panel/)
+})
+
 test('uses native Hermes controls for settings', () => {
   for (const control of ['Select', 'SelectTrigger', 'SelectContent', 'SelectItem', 'SelectValue', 'Switch']) {
     assert.match(source, new RegExp(`\\b${control}\\b`))
@@ -53,6 +64,19 @@ test('keeps data and presents stale refresh failures', () => {
   assert.match(source, /Stale data|Last successful update/)
 })
 
+test('uses an accessible compact ghost Refresh icon', () => {
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const header = weatherChip.slice(weatherChip.indexOf("const header = jsxs('header'"), weatherChip.indexOf("const body = jsx('main'"))
+
+  assert.match(header, /variant: ['"]ghost['"]/)
+  assert.match(header, /size: ['"]icon['"]/)
+  assert.match(header, /className: ['"][^'"]*size-7[^'"]*['"]/)
+  assert.match(header, /'aria-label': ['"]Refresh weather['"]/)
+  assert.match(header, /title: ['"]Refresh weather['"]/)
+  assert.match(header, /children: jsx\(Codicon, \{ name: ['"]refresh['"], size: 14, spinning: query\.isFetching \}\)/)
+  assert.doesNotMatch(header, /Refreshing…|Refresh now/)
+})
+
 test('stores versioned settings and supports location removal', () => {
   assert.match(source, /SETTINGS_VERSION\s*=\s*1/)
   assert.match(source, /pluginCtx\.storage\.get\(SETTINGS_KEY/)
@@ -83,7 +107,7 @@ test('honors notification settings and severe baseline', () => {
 test('shows only the active view and defaults to Current', () => {
   assert.match(source, /const \[activeView, setActiveView\] = useState\(['"]current['"]\)/)
   assert.match(source, /switch \(activeView\)/)
-  assert.match(source, /children:\s*activeViewContent/)
+  assert.match(source, /children:\s*activePanel/)
 })
 
 test('shows native buttons for all six weather views', () => {
@@ -95,25 +119,40 @@ test('shows native buttons for all six weather views', () => {
     ['details', 'Details'],
     ['settings', 'Settings']
   ]) {
-    assert.match(source, new RegExp(`id: ['"]${id}['"], label: ['"]${label}['"]`))
+    assert.match(source, new RegExp(`id: ['"]${id}['"], label: ['"]${label}['"], icon: ['"][^'"]+['"]`))
   }
-  assert.match(source, /views\.map\(view => jsx\(Button/)
+  assert.match(source, /views\.map\(view => jsxs\(Button/)
   assert.match(source, /onClick: \(\) => setActiveView\(view\.id\)/)
   assert.match(source, /role: ['"]tab['"]/)
+  assert.match(source, /'aria-label': view\.label/)
   assert.match(source, /'aria-selected': activeView === view\.id/)
 })
 
-test('selects each weather data pane through the active view switch', () => {
+test('keeps the bottom tab bar on one horizontal line', () => {
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const tabBar = weatherChip.slice(weatherChip.indexOf("const tabBar = jsx('nav'"), weatherChip.indexOf("const panel = jsxs('div'"))
+
+  assert.match(tabBar, /className: ['"][^'"]*flex-nowrap[^'"]*overflow-hidden[^'"]*['"]/)
+  assert.match(tabBar, /className: ['"][^'"]*min-w-0[^'"]*flex-1[^'"]*whitespace-nowrap[^'"]*['"]/)
+  assert.match(tabBar, /jsx\(Codicon, \{ name: view\.icon/)
+  assert.doesNotMatch(tabBar, /grid-cols-|flex-wrap/)
+})
+
+test('routes all six weather views through the shared ScrollArea', () => {
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
   const cases = [
     ['current', 'CurrentConditions'],
     ['hourly', 'HourlyForecast'],
     ['daily', 'DailyForecast'],
     ['alerts', 'Alerts'],
-    ['details', 'Details']
+    ['details', 'Details'],
+    ['settings', 'Settings']
   ]
   for (const [view, component] of cases) {
-    assert.match(source, new RegExp(`case ['"]${view}['"]:[\\s\\S]*?activePanel = jsx\\(${component},`))
+    assert.match(weatherChip, new RegExp(`case ['"]${view}['"]:[\\s\\S]*?activePanel = jsx\\(${component},`))
   }
+  assert.match(weatherChip, /const viewContent = !settings\.location && activeView === ['"]current['"][\s\S]*?children: activePanel/)
+  assert.match(weatherChip, /jsx\(ScrollArea, \{[\s\S]*?children: viewContent/)
 })
 
 test('keeps location controls in a distinct Settings view', () => {
@@ -121,25 +160,26 @@ test('keeps location controls in a distinct Settings view', () => {
   assert.match(settingsView, /jsx\(LocationSetup/)
   assert.match(settingsView, /Remove location/)
   assert.match(source, /case ['"]settings['"]:[\s\S]*?activePanel = jsx\(Settings,/)
-  const currentCase = source.slice(source.indexOf("case 'current':"), source.indexOf('const panel ='))
+  const currentCase = source.slice(source.indexOf("case 'current':"), source.indexOf('const viewContent ='))
   assert.doesNotMatch(currentCase, /Settings|LocationSetup|Remove location/)
 })
 
-test('bounds every view with one shared scrolling body outside fixed controls', () => {
+test('orders a fixed header, bounded shared body, attribution, and bottom tabs', () => {
   const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const body = weatherChip.slice(weatherChip.indexOf("const body = jsx('main'"), weatherChip.indexOf('const attribution ='))
   const panel = weatherChip.slice(weatherChip.indexOf("const panel = jsxs('div'"))
-  const alertCase = weatherChip.slice(weatherChip.indexOf("case 'alerts':"), weatherChip.indexOf("case 'details':"))
 
   assert.doesNotMatch(weatherChip, /scrollableViews/)
-  assert.match(source, /const VIEW_BODY_CLASS = ['"][^'"]*h-\[min\(16rem,55vh\)\][^'"]*max-h-\[min\(16rem,55vh\)\][^'"]*['"]/)
-  assert.match(weatherChip, /const activeViewContent = jsx\(ScrollArea, \{[\s\S]*?className: VIEW_BODY_CLASS[\s\S]*?children: activePanel[\s\S]*?\}\)/)
-  assert.match(alertCase, /activePanel = jsx\(Alerts, \{ data \}\)/)
-  assert.match(panel, /Refresh now[\s\S]*?role: ['"]tablist['"][\s\S]*?id: ['"]weather-active-panel['"][\s\S]*?children: activeViewContent[\s\S]*?Weather data by Open-Meteo/)
-  assert.doesNotMatch(panel, /h-\[24rem\]|max-h-\[min\(24rem,80vh\)\]/)
+  assert.equal((weatherChip.match(/jsx\(ScrollArea/g) || []).length, 1)
+  assert.match(body, /className: ['"]min-h-0 flex-1 overflow-hidden['"]/)
+  assert.match(body, /jsx\(ScrollArea, \{[\s\S]*?className: ['"]h-full w-full['"][\s\S]*?children: viewContent/)
+  assert.match(panel, /className: ['"]flex h-full min-h-0 flex-col['"]/)
+  assert.match(panel, /children: \[header, body, attribution, tabBar\]/)
+  assert.doesNotMatch(weatherChip, /VIEW_BODY_CLASS|max-h-/)
 })
 
 test('shows setup current hourly daily details settings and refresh controls', () => {
-  for (const label of ['Choose location', 'Current conditions', 'Next 24 hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh now']) {
+  for (const label of ['Choose location', 'Current conditions', 'Next 24 hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh weather']) {
     assert.ok(source.includes(label), `missing UI label: ${label}`)
   }
 })
@@ -151,9 +191,17 @@ test('daily rows show rain amount probability wind and gust', () => {
   }
 })
 
-test('shows provider attribution and official alert source links', () => {
-  assert.match(source, /Weather data by Open-Meteo/)
-  assert.match(source, /Environment and Climate Change Canada/)
+test('shows one-line provider attribution with accessible source links', () => {
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const attribution = weatherChip.slice(weatherChip.indexOf("const attribution = jsx('footer'"), weatherChip.indexOf("const tabBar = jsx('nav'"))
+
+  assert.match(attribution, /className: ['"][^'"]*shrink-0[^'"]*min-w-0[^'"]*['"]/)
+  assert.match(attribution, /className: ['"][^'"]*text-\[0\.625rem\][^'"]*truncate[^'"]*whitespace-nowrap[^'"]*['"]/)
+  assert.match(attribution, /'aria-label': ['"]Open Open-Meteo website['"]/)
+  assert.match(attribution, /'aria-label': ['"]Open Environment and Climate Change Canada website['"]/)
+  assert.match(attribution, /openExternal\(['"]https:\/\/open-meteo\.com\/['"]\)/)
+  assert.match(attribution, /openExternal\(['"]https:\/\/weather\.gc\.ca\/warnings\/index_e\.html['"]\)/)
+  assert.doesNotMatch(attribution, /whitespace-normal|flex-wrap/)
   assert.match(source, /openExternal\(alert\.sourceUrl\)/)
 })
 
