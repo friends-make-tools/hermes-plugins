@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.5
+Version: 1.6
 Source plan date: 2026-09-02
 
 ## Decision
@@ -10,7 +10,8 @@ Build one unified plugin named `weather`.
 Its desktop half renders a status chip in `statusBar.right`.
 Its backend fetches, bounds, caches, and normalizes provider data.
 
-Use Open-Meteo for manual location search, current conditions, hourly forecasts, and seven-day forecasts.
+Use Open-Meteo for manual location search and primary forecasts.
+Use MET Norway as the automatic forecast fallback after any Open-Meteo upstream failure.
 Use Environment and Climate Change Canada for authoritative Canadian alerts.
 Do not infer location from an IP address.
 Do not create official alerts from forecast thresholds.
@@ -82,6 +83,15 @@ It never labels a derived notice as official.
 `provider.forecast` and `provider.alerts` have independent status values.
 A forecast failure must not hide retrieved official alerts.
 An alert failure must not hide valid forecast data.
+Set `provider.forecast.name` to the active forecast provider.
+Call MET Norway once only after an Open-Meteo `UpstreamError`.
+If both forecast providers fail, expose one sanitized forecast-unavailable state.
+
+Normalize MET Norway compact timeseries into the same current, hourly, and daily fields.
+Convert Celsius, millimetres, and metres per second for the requested units.
+Use null for unsupported apparent temperature, visibility, sunrise, and sunset values.
+Aggregate up to seven local dates from available timeseries values.
+Use daily high, low, precipitation sum, maximum wind, maximum gust, and the strongest condition.
 
 ## Network and safety rules
 
@@ -91,6 +101,7 @@ Allow only these HTTPS hosts:
 
 - `geocoding-api.open-meteo.com`
 - `api.open-meteo.com`
+- `api.met.no`
 - `api.weather.gc.ca`
 
 Set every request timeout to 15 seconds.
@@ -129,7 +140,7 @@ Use a full-height column with a fixed header, bounded scrolling body, attributio
 Keep the selected location and icon-only Refresh control in the fixed header.
 Use the native ghost Button and a supported Refresh Codicon.
 Give the Refresh control an accessible label and tooltip.
-Keep provider attribution in a fixed footer above the tab bar.
+Keep active forecast provider attribution in a fixed footer above the tab bar.
 Render attribution smaller than content on one truncated, non-wrapping line.
 Preserve accessible provider names and links when the visual text truncates.
 
@@ -199,18 +210,19 @@ Polling stops when the status item unmounts.
 
 ## Attribution and privacy
 
-Show Open-Meteo attribution in the popover.
+Show attribution for the active Open-Meteo or MET Norway forecast in the popover.
 Show ECCC attribution for Canadian alerts.
 Open official alert source links with `ctx.os.openExternal`.
 
 Store no complete provider payloads.
 Store no credentials.
 Transmit only manual search text, selected coordinates, and forecast settings.
+Send coordinates to MET Norway only during forecast fallback.
 
 ## Verification
 
-Backend tests must cover validation, normalization, WMO mapping, cache behavior, sanitized failures, response bounds, alert normalization, and provider independence.
-Desktop contract tests must cover identity, status area, square native popover, six-view bottom navigation, one active view, separate Settings, one shared bounded scrolling body, fixed controls outside that body, icon-only refresh, one-line attribution, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, and theme safety.
+Backend tests must cover validation, both forecast normalizers, symbol mapping, fallback behavior, unit conversion, daily aggregation, cache behavior, sanitized failures, response bounds, alert normalization, and provider independence.
+Desktop contract tests must cover identity, status area, square native popover, six-view bottom navigation, one active view, separate Settings, one shared bounded scrolling body, fixed controls outside that body, icon-only refresh, dynamic one-line attribution, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, and theme safety.
 
 Run Python tests, Node contract tests, Python compilation, and JavaScript syntax checks.
 Run controlled live location and weather calls when the network allows.

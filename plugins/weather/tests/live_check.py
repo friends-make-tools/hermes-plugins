@@ -1,4 +1,4 @@
-"""Controlled live check for Open-Meteo location and weather calls."""
+"""Live Markham check with forced Open-Meteo failure and real MET fallback."""
 from __future__ import annotations
 
 import importlib.util
@@ -11,29 +11,41 @@ api = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(api)
 
-locations = api.get_locations("Toronto")
-if not locations:
-    raise SystemExit("Open-Meteo location search returned no Toronto results")
-selected = next((row for row in locations if row.get("countryCode") == "CA"), locations[0])
-snapshot = api.get_weather(
-    selected["latitude"],
-    selected["longitude"],
+location = {
+    "name": "Markham",
+    "displayName": "Markham, Ontario, CA",
+    "latitude": 43.8561,
+    "longitude": -79.3370,
+    "countryCode": "CA",
+    "admin1": "Ontario",
+    "timezone": "America/Toronto",
+}
+
+
+def fail_open_meteo(*_args):
+    raise api.UpstreamError("Injected Open-Meteo failure", 503)
+
+
+snapshot = api.build_weather_snapshot(
+    location,
     "metric",
-    selected["name"],
-    selected["countryCode"],
-    selected["admin1"],
-    selected["timezone"],
+    forecast_loader=fail_open_meteo,
 )
+if snapshot["current"] is None:
+    raise SystemExit("MET Norway fallback returned no current conditions")
+if snapshot["provider"]["forecast"] != {"name": "MET Norway", "status": "ok"}:
+    raise SystemExit("MET Norway fallback did not become the active forecast provider")
+
 print(json.dumps({
     "locationRequest": {
-        "query": "Toronto",
-        "resultCount": len(locations),
-        "selected": selected["displayName"],
+        "selected": location["displayName"],
+        "primaryFailureInjected": True,
     },
     "weatherRequest": {
         "topLevelFields": sorted(snapshot),
-        "currentTemperature": snapshot["current"].get("temperature") if snapshot["current"] else None,
-        "currentCondition": snapshot["current"].get("condition") if snapshot["current"] else None,
+        "currentTemperature": snapshot["current"]["temperature"],
+        "currentCondition": snapshot["current"]["condition"],
+        "currentHumidity": snapshot["current"]["humidity"],
         "hourlyCount": len(snapshot["hourly"]),
         "dailyCount": len(snapshot["daily"]),
         "alertCount": len(snapshot["alerts"]),

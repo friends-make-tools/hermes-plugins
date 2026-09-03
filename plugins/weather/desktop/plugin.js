@@ -462,6 +462,10 @@ function WeatherChip() {
     staleTime: 5 * 60 * 1000
   })
   const data = query.data
+  const forecastProviderName = data?.provider?.forecast?.name === 'MET Norway' ? 'MET Norway' : 'Open-Meteo'
+  const forecastProviderUrl = forecastProviderName === 'MET Norway'
+    ? 'https://www.met.no/en'
+    : 'https://open-meteo.com/'
 
   useEffect(() => {
     rememberAndNotifyAlerts(data?.alerts, settings, locationKey)
@@ -578,14 +582,14 @@ function WeatherChip() {
     className: 'shrink-0 min-w-0 overflow-hidden border-t border-(--ui-stroke-secondary) px-3 py-1',
     children: jsxs('p', {
       className: 'text-[0.625rem] text-(--ui-text-tertiary) truncate whitespace-nowrap',
-      title: 'Weather data by Open-Meteo · Official Canadian alerts by Environment and Climate Change Canada',
+      title: `Weather data by ${forecastProviderName} · Official Canadian alerts by Environment and Climate Change Canada`,
       children: [
         jsx('button', {
           type: 'button',
           className: 'underline',
-          'aria-label': 'Open Open-Meteo website',
-          onClick: () => void pluginCtx.os.openExternal('https://open-meteo.com/'),
-          children: 'Weather data by Open-Meteo'
+          'aria-label': `Open ${forecastProviderName} website`,
+          onClick: () => void pluginCtx.os.openExternal(forecastProviderUrl),
+          children: `Weather data by ${forecastProviderName}`
         }),
         ' · ',
         jsx('button', {

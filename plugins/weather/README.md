@@ -23,7 +23,8 @@ All six compact icon tabs stay on one horizontal line.
 The first-use view keeps manual location setup compact.
 After setup, location search and removal stay in Settings.
 
-Open-Meteo supplies location search and forecast data.
+Open-Meteo supplies location search and primary forecast data.
+MET Norway supplies forecast data when Open-Meteo is unavailable.
 Environment and Climate Change Canada supplies official Canadian alerts.
 The plugin does not infer a location from an IP address.
 
@@ -53,7 +54,8 @@ The weather response contains exactly these top-level fields:
 
 Forecast and alert provider states remain separate.
 An alert outage does not remove forecast data.
-A forecast outage does not hide successfully retrieved official alerts.
+A failure from both forecast providers does not hide retrieved official alerts.
+The forecast provider state names the provider whose data is active.
 
 Provider failures use short, fixed public messages.
 Non-JSON error bodies map to provider unavailability, including Open-Meteo streaming timeouts and HTML error pages.
@@ -79,6 +81,7 @@ The backend only contacts these fixed hosts:
 
 - `geocoding-api.open-meteo.com`
 - `api.open-meteo.com`
+- `api.met.no`
 - `api.weather.gc.ca`
 
 ## Settings
@@ -98,13 +101,15 @@ This plugin also has its own alert notification toggle.
 
 ## Privacy and attribution
 
-The plugin sends the selected coordinates and forecast settings to Open-Meteo.
+The plugin sends selected coordinates and forecast settings to Open-Meteo.
+It sends selected coordinates to MET Norway only when the primary forecast fails.
 For Canadian locations, it sends a small coordinate bounding box to ECCC.
 It filters returned alert polygons against the selected point.
 It stores only settings and alert fingerprints.
 It does not store complete provider payloads.
 
 Weather data: [Open-Meteo](https://open-meteo.com/).
+Fallback weather data: [MET Norway](https://www.met.no/en).
 Official Canadian alerts: [Environment and Climate Change Canada](https://weather.gc.ca/warnings/index_e.html).
 
 ## Tests

@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Callable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
     from fastapi import APIRouter
@@ -41,8 +42,9 @@ router = APIRouter()
 
 GEOCODING_HOST = "geocoding-api.open-meteo.com"
 FORECAST_HOST = "api.open-meteo.com"
+MET_FORECAST_HOST = "api.met.no"
 ECCC_HOST = "api.weather.gc.ca"
-ALLOWED_HOSTS = frozenset({GEOCODING_HOST, FORECAST_HOST, ECCC_HOST})
+ALLOWED_HOSTS = frozenset({GEOCODING_HOST, FORECAST_HOST, MET_FORECAST_HOST, ECCC_HOST})
 REQUEST_TIMEOUT_SECONDS = 15.0
 MAX_RESPONSE_BYTES = 2_000_000
 CACHE_TTL_SECONDS = 60.0
@@ -181,6 +183,32 @@ _WMO_CODES = {
     99: ("Severe thunderstorm with hail", "⛈"),
 }
 
+_MET_SYMBOLS = {
+    "clearsky": ("Clear sky", "☀", 0),
+    "fair": ("Mainly clear", "🌤", 1),
+    "partlycloudy": ("Partly cloudy", "⛅", 2),
+    "cloudy": ("Overcast", "☁", 3),
+    "fog": ("Fog", "🌫", 4),
+    "lightrainshowers": ("Slight rain showers", "🌦", 5),
+    "rainshowers": ("Rain showers", "🌧", 6),
+    "heavyrainshowers": ("Heavy rain showers", "🌧", 7),
+    "lightrain": ("Slight rain", "🌦", 5),
+    "rain": ("Rain", "🌧", 6),
+    "heavyrain": ("Heavy rain", "🌧", 7),
+    "lightsleetshowers": ("Light freezing rain", "🌧", 6),
+    "sleetshowers": ("Freezing rain", "🌧", 7),
+    "heavysleetshowers": ("Freezing rain", "🌧", 8),
+    "lightsleet": ("Light freezing rain", "🌧", 6),
+    "sleet": ("Freezing rain", "🌧", 7),
+    "heavysleet": ("Freezing rain", "🌧", 8),
+    "lightsnowshowers": ("Slight snow showers", "🌨", 6),
+    "snowshowers": ("Slight snow showers", "🌨", 7),
+    "heavysnowshowers": ("Heavy snow showers", "❄", 8),
+    "lightsnow": ("Slight snow", "🌨", 6),
+    "snow": ("Snow", "🌨", 7),
+    "heavysnow": ("Heavy snow", "❄", 8),
+}
+
 
 def weather_code(value: Any) -> dict[str, Any]:
     try:
@@ -189,6 +217,24 @@ def weather_code(value: Any) -> dict[str, Any]:
         code = -1
     condition, icon = _WMO_CODES.get(code, ("Unknown", "?"))
     return {"code": code, "condition": condition, "icon": icon}
+
+
+def _met_symbol_key(value: Any) -> str:
+    symbol = str(value or "").strip().lower()
+    for suffix in ("_day", "_night", "_polartwilight"):
+        if symbol.endswith(suffix):
+            symbol = symbol[:-len(suffix)]
+            break
+    return "thunder" if symbol.endswith("andthunder") else symbol
+
+
+def met_symbol(value: Any) -> dict[str, Any]:
+    key = _met_symbol_key(value)
+    if key == "thunder":
+        condition, icon = "Thunderstorm", "⛈"
+    else:
+        condition, icon, _severity = _MET_SYMBOLS.get(key, ("Unknown", "?", -1))
+    return {"weatherCode": None, "condition": condition, "icon": icon}
 
 
 def normalize_locations(payload: Any) -> list[dict[str, Any]]:
@@ -289,6 +335,144 @@ def normalize_forecast(payload: Any) -> dict[str, Any]:
         "daily": daily,
         "sourceUpdatedAt": current_raw.get("time"),
         "timezone": str(payload.get("timezone") or "UTC"),
+    }
+
+
+def _number(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _convert_temperature(value: Any, units: str) -> float | None:
+    number = _number(value)
+    if number is None:
+        return None
+    return number * 9.0 / 5.0 + 32.0 if units == "imperial" else number
+
+
+def _convert_wind(value: Any, units: str) -> float | None:
+    number = _number(value)
+    if number is None:
+        return None
+    return number * (2.236936292 if units == "imperial" else 3.6)
+
+
+def _convert_precipitation(value: Any, units: str) -> float | None:
+    number = _number(value)
+    if number is None:
+        return None
+    return number / 25.4 if units == "imperial" else number
+
+
+def _met_period(data: dict[str, Any]) -> dict[str, Any]:
+    for name in ("next_1_hours", "next_6_hours", "next_12_hours"):
+        period = data.get(name)
+        if isinstance(period, dict):
+            return period
+    return {}
+
+
+def _met_local_date(timestamp: str, timezone_name: str) -> str:
+    try:
+        target_timezone = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        target_timezone = timezone.utc
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(target_timezone).date().isoformat()
+    except ValueError:
+        return timestamp[:10]
+
+
+def _met_row(row: Any, units: str) -> dict[str, Any] | None:
+    if not isinstance(row, dict) or not isinstance(row.get("time"), str):
+        return None
+    data = row.get("data") if isinstance(row.get("data"), dict) else {}
+    instant = data.get("instant") if isinstance(data.get("instant"), dict) else {}
+    details = instant.get("details") if isinstance(instant.get("details"), dict) else {}
+    period = _met_period(data)
+    summary = period.get("summary") if isinstance(period.get("summary"), dict) else {}
+    period_details = period.get("details") if isinstance(period.get("details"), dict) else {}
+    symbol_code = summary.get("symbol_code")
+    return {
+        "time": row["time"],
+        "temperature": _convert_temperature(details.get("air_temperature"), units),
+        "apparentTemperature": None,
+        **met_symbol(symbol_code),
+        "precipitationProbability": _number(period_details.get("probability_of_precipitation")),
+        "precipitation": _convert_precipitation(period_details.get("precipitation_amount"), units),
+        "humidity": _number(details.get("relative_humidity")),
+        "windSpeed": _convert_wind(details.get("wind_speed"), units),
+        "windGust": _convert_wind(details.get("wind_speed_of_gust"), units),
+        "windDirection": _number(details.get("wind_from_direction")),
+        "visibility": None,
+        "pressure": _number(details.get("air_pressure_at_sea_level")),
+        "_symbol": symbol_code,
+    }
+
+
+def _available_max(rows: list[dict[str, Any]], field: str) -> float | None:
+    values = [row[field] for row in rows if row.get(field) is not None]
+    return max(values) if values else None
+
+
+def _daily_met_condition(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    def severity(row: dict[str, Any]) -> int:
+        key = _met_symbol_key(row.get("_symbol"))
+        return 9 if key == "thunder" else _MET_SYMBOLS.get(key, ("Unknown", "?", -1))[2]
+
+    return met_symbol(max(rows, key=severity).get("_symbol"))
+
+
+def normalize_met_forecast(payload: Any, units: str, timezone_name: str) -> dict[str, Any]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("properties"), dict):
+        raise UpstreamError("Forecast service returned invalid data")
+    properties = payload["properties"]
+    timeseries = properties.get("timeseries")
+    if not isinstance(timeseries, list):
+        raise UpstreamError("Forecast service returned incomplete data")
+    rows = [normalized for row in timeseries if (normalized := _met_row(row, units)) is not None]
+    if not rows or rows[0].get("temperature") is None:
+        raise UpstreamError("Forecast service returned incomplete data")
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        date = _met_local_date(row["time"], timezone_name)
+        grouped.setdefault(date, []).append(row)
+
+    daily: list[dict[str, Any]] = []
+    for date, date_rows in list(grouped.items())[:MAX_DAILY_ITEMS]:
+        precipitation = [row["precipitation"] for row in date_rows if row.get("precipitation") is not None]
+        temperatures = [row["temperature"] for row in date_rows if row.get("temperature") is not None]
+        daily.append({
+            "date": date,
+            **_daily_met_condition(date_rows),
+            "temperatureMax": max(temperatures) if temperatures else None,
+            "temperatureMin": min(temperatures) if temperatures else None,
+            "precipitationProbability": _available_max(date_rows, "precipitationProbability"),
+            "precipitation": sum(precipitation) if precipitation else None,
+            "windSpeed": _available_max(date_rows, "windSpeed"),
+            "windGust": _available_max(date_rows, "windGust"),
+            "sunrise": None,
+            "sunset": None,
+        })
+
+    public_rows = [{key: value for key, value in row.items() if key != "_symbol"} for row in rows]
+    current = dict(public_rows[0])
+    current.pop("precipitationProbability")
+    current["precipitation"] = None
+    meta = properties.get("meta") if isinstance(properties.get("meta"), dict) else {}
+    return {
+        "current": current,
+        "hourly": public_rows[:MAX_HOURLY_ITEMS],
+        "daily": daily,
+        "sourceUpdatedAt": meta.get("updated_at") or rows[0]["time"],
+        "timezone": timezone_name,
     }
 
 
@@ -448,6 +632,13 @@ def fetch_forecast(location: dict[str, Any], units: str) -> dict[str, Any]:
     return normalize_forecast(fetch_json(_url(FORECAST_HOST, "/v1/forecast", params)))
 
 
+def fetch_met_forecast(location: dict[str, Any], units: str) -> dict[str, Any]:
+    payload = fetch_json(_url(MET_FORECAST_HOST, "/weatherapi/locationforecast/2.0/compact", {
+        "lat": location["latitude"], "lon": location["longitude"],
+    }))
+    return normalize_met_forecast(payload, units, location["timezone"])
+
+
 def fetch_alerts(location: dict[str, Any]) -> list[dict[str, Any]]:
     lat = location["latitude"]
     lon = location["longitude"]
@@ -467,6 +658,7 @@ def build_weather_snapshot(
     location: dict[str, Any],
     units: str,
     forecast_loader: Callable[..., dict[str, Any]] = fetch_forecast,
+    fallback_loader: Callable[..., dict[str, Any]] = fetch_met_forecast,
     alerts_loader: Callable[..., list[dict[str, Any]]] = fetch_alerts,
 ) -> dict[str, Any]:
     forecast: dict[str, Any] | None = None
@@ -476,8 +668,15 @@ def build_weather_snapshot(
     try:
         forecast = forecast_loader(location, units)
         forecast_status = {"name": "Open-Meteo", "status": "ok"}
-    except UpstreamError as exc:
-        forecast_status = {"name": "Open-Meteo", "status": "error", "error": exc.message, "statusCode": exc.status}
+    except UpstreamError:
+        try:
+            forecast = fallback_loader(location, units)
+            forecast_status = {"name": "MET Norway", "status": "ok"}
+        except UpstreamError as fallback_exc:
+            forecast_status = {
+                "name": "MET Norway", "status": "error",
+                "error": "Forecast services are unavailable", "statusCode": fallback_exc.status,
+            }
 
     if location.get("countryCode", "").upper() == "CA":
         try:

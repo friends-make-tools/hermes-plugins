@@ -196,15 +196,20 @@ test('daily rows show rain amount probability wind and gust', () => {
   }
 })
 
-test('shows one-line provider attribution with accessible source links', () => {
+test('shows one-line dynamic active-provider attribution with accessible source links', () => {
   const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
   const attribution = weatherChip.slice(weatherChip.indexOf("const attribution = jsx('footer'"), weatherChip.indexOf("const tabBar = jsx('nav'"))
 
   assert.match(attribution, /className: ['"][^'"]*shrink-0[^'"]*min-w-0[^'"]*['"]/)
   assert.match(attribution, /className: ['"][^'"]*text-\[0\.625rem\][^'"]*truncate[^'"]*whitespace-nowrap[^'"]*['"]/)
-  assert.match(attribution, /'aria-label': ['"]Open Open-Meteo website['"]/)
+  assert.match(weatherChip, /data\?\.provider\?\.forecast\?\.name === ['"]MET Norway['"]/)
+  assert.match(weatherChip, /forecastProviderName/)
+  assert.match(weatherChip, /forecastProviderUrl/)
+  assert.match(attribution, /'aria-label': `Open \$\{forecastProviderName\} website`/)
   assert.match(attribution, /'aria-label': ['"]Open Environment and Climate Change Canada website['"]/)
-  assert.match(attribution, /openExternal\(['"]https:\/\/open-meteo\.com\/['"]\)/)
+  assert.match(attribution, /openExternal\(forecastProviderUrl\)/)
+  assert.match(weatherChip, /https:\/\/open-meteo\.com\//)
+  assert.match(weatherChip, /https:\/\/www\.met\.no\/en/)
   assert.match(attribution, /openExternal\(['"]https:\/\/weather\.gc\.ca\/warnings\/index_e\.html['"]\)/)
   assert.doesNotMatch(attribution, /whitespace-normal|flex-wrap/)
   assert.match(source, /openExternal\(alert\.sourceUrl\)/)
