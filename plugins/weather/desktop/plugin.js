@@ -27,6 +27,14 @@ const SETTINGS_VERSION = 1
 const SETTINGS_KEY = 'settings'
 const ALERT_STATE_KEY = 'alert-state'
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60]
+const views = [
+  { id: 'current', label: 'Current' },
+  { id: 'hourly', label: 'Hourly' },
+  { id: 'daily', label: 'Daily' },
+  { id: 'alerts', label: 'Alerts' },
+  { id: 'details', label: 'Details' },
+  { id: 'settings', label: 'Settings' }
+]
 const SEVERITY_RANK = { unknown: 0, minor: 1, moderate: 2, severe: 3, extreme: 4 }
 const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
@@ -177,7 +185,7 @@ function detailRow(label, value) {
   })
 }
 
-function LocationSetup({ onSelect }) {
+function LocationSetup({ onSelect, title = 'Choose location' }) {
   const [term, setTerm] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -202,7 +210,7 @@ function LocationSetup({ onSelect }) {
     }
   }
 
-  return section('Choose location', jsxs('form', {
+  return section(title, jsxs('form', {
     className: 'flex flex-col gap-2',
     onSubmit: searchLocations,
     children: [
@@ -375,7 +383,7 @@ function settingSelect(value, onValueChange, options, label) {
   })
 }
 
-function Settings({ settings, onChange, removeLocation }) {
+function Settings({ settings, onChange, onSelectLocation, removeLocation }) {
   return section('Settings', jsxs('div', {
     className: 'flex flex-col gap-2 text-xs',
     children: [
@@ -421,6 +429,8 @@ function Settings({ settings, onChange, removeLocation }) {
           ], 'Minimum severity')
         ]
       }),
+      jsx(Separator, {}),
+      jsx(LocationSetup, { onSelect: onSelectLocation, title: 'Change location' }),
       jsx(Button, { type: 'button', variant: 'ghost', onClick: removeLocation, children: 'Remove location' })
     ]
   }))
@@ -428,6 +438,7 @@ function Settings({ settings, onChange, removeLocation }) {
 
 function WeatherChip() {
   const [settings, setSettings] = useState(readSettings)
+  const [activeView, setActiveView] = useState('current')
   const locationKey = settings.location
     ? [
         settings.location.latitude,
@@ -482,12 +493,47 @@ function WeatherChip() {
     pluginCtx.storage.remove(ALERT_STATE_KEY)
   }
 
-  const panel = jsxs(ScrollArea, {
-    className: 'max-h-[min(34rem,80vh)] w-[min(24rem,calc(100vw-1rem))] p-3',
+  let activePanel = null
+  switch (activeView) {
+    case 'hourly':
+      activePanel = jsx(HourlyForecast, { items: data?.hourly, units: settings.units })
+      break
+    case 'daily':
+      activePanel = jsx(DailyForecast, { items: data?.daily, units: settings.units })
+      break
+    case 'alerts':
+      activePanel = jsx(Alerts, { data })
+      break
+    case 'details':
+      activePanel = jsx(Details, { data, units: settings.units })
+      break
+    case 'settings':
+      activePanel = jsx(Settings, {
+        settings,
+        onChange: updateSettings,
+        onSelectLocation: selectLocation,
+        removeLocation
+      })
+      break
+    case 'current':
+    default:
+      activePanel = jsx(CurrentConditions, { data, units: settings.units })
+  }
+
+  const scrollableViews = ['daily', 'alerts', 'details', 'settings']
+  const activeViewContent = scrollableViews.includes(activeView)
+    ? jsx(ScrollArea, { className: 'h-full pr-2', children: activePanel })
+    : activePanel
+
+  const panel = jsxs('div', {
+    className: 'flex h-[24rem] max-h-[min(24rem,80vh)] w-[min(24rem,calc(100vw-1rem))] overflow-hidden p-3',
     children: [
-      !settings.location ? jsx(LocationSetup, { onSelect: selectLocation }) : null,
+      !settings.location ? jsx(ScrollArea, {
+        className: 'h-full w-full',
+        children: jsx(LocationSetup, { onSelect: selectLocation })
+      }) : null,
       settings.location ? jsxs('div', {
-        className: 'flex flex-col gap-3',
+        className: 'flex h-full min-h-0 w-full flex-col gap-3',
         children: [
           jsxs('div', {
             className: 'flex items-center justify-between gap-2',
@@ -506,13 +552,29 @@ function WeatherChip() {
             className: 'text-xs text-(--ui-text-secondary)',
             children: `Stale data. Last successful update ${shortTime(data.fetchedAt)}.`
           }) : null,
-          jsx(Alerts, { data }),
-          jsx(CurrentConditions, { data, units: settings.units }),
-          data ? jsx(HourlyForecast, { items: data.hourly, units: settings.units }) : null,
-          data ? jsx(DailyForecast, { items: data.daily, units: settings.units }) : null,
-          data ? jsx(Details, { data, units: settings.units }) : null,
-          jsx(Separator, {}),
-          jsx(Settings, { settings, onChange: updateSettings, removeLocation }),
+          jsx('div', {
+            role: 'tablist',
+            'aria-label': 'Weather views',
+            className: 'grid grid-cols-3 gap-1',
+            children: views.map(view => jsx(Button, {
+              type: 'button',
+              role: 'tab',
+              size: 'sm',
+              variant: activeView === view.id ? 'secondary' : 'ghost',
+              className: 'h-7 px-2 text-xs',
+              'aria-selected': activeView === view.id,
+              'aria-controls': 'weather-active-panel',
+              onClick: () => setActiveView(view.id),
+              children: view.label
+            }, view.id))
+          }),
+          jsx('div', {
+            id: 'weather-active-panel',
+            role: 'tabpanel',
+            'aria-label': `${activeView} weather view`,
+            className: 'min-h-0 flex-1 overflow-hidden',
+            children: activeViewContent
+          }),
           jsx(Separator, {}),
           jsxs('p', {
             className: 'text-[0.6875rem] text-(--ui-text-tertiary)',

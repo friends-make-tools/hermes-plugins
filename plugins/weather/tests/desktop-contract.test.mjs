@@ -80,6 +80,59 @@ test('honors notification settings and severe baseline', () => {
   assert.match(source, /pluginCtx\.os\.notify/)
 })
 
+test('shows only the active view and defaults to Current', () => {
+  assert.match(source, /const \[activeView, setActiveView\] = useState\(['"]current['"]\)/)
+  assert.match(source, /switch \(activeView\)/)
+  assert.match(source, /children:\s*activeViewContent/)
+})
+
+test('shows native buttons for all six weather views', () => {
+  for (const [id, label] of [
+    ['current', 'Current'],
+    ['hourly', 'Hourly'],
+    ['daily', 'Daily'],
+    ['alerts', 'Alerts'],
+    ['details', 'Details'],
+    ['settings', 'Settings']
+  ]) {
+    assert.match(source, new RegExp(`id: ['"]${id}['"], label: ['"]${label}['"]`))
+  }
+  assert.match(source, /views\.map\(view => jsx\(Button/)
+  assert.match(source, /onClick: \(\) => setActiveView\(view\.id\)/)
+  assert.match(source, /role: ['"]tab['"]/)
+  assert.match(source, /'aria-selected': activeView === view\.id/)
+})
+
+test('selects each weather data pane through the active view switch', () => {
+  const cases = [
+    ['current', 'CurrentConditions'],
+    ['hourly', 'HourlyForecast'],
+    ['daily', 'DailyForecast'],
+    ['alerts', 'Alerts'],
+    ['details', 'Details']
+  ]
+  for (const [view, component] of cases) {
+    assert.match(source, new RegExp(`case ['"]${view}['"]:[\\s\\S]*?activePanel = jsx\\(${component},`))
+  }
+})
+
+test('keeps location controls in a distinct Settings view', () => {
+  const settingsView = source.slice(source.indexOf('function Settings'), source.indexOf('function WeatherChip'))
+  assert.match(settingsView, /jsx\(LocationSetup/)
+  assert.match(settingsView, /Remove location/)
+  assert.match(source, /case ['"]settings['"]:[\s\S]*?activePanel = jsx\(Settings,/)
+  const currentCase = source.slice(source.indexOf("case 'current':"), source.indexOf('const panel ='))
+  assert.doesNotMatch(currentCase, /Settings|LocationSetup|Remove location/)
+})
+
+test('bounds the compact popover and scrolls only overflowing views', () => {
+  assert.match(source, /className: ['"][^'"]*h-\[24rem\][^'"]*max-h-\[min\(24rem,80vh\)\]/)
+  assert.match(source, /const scrollableViews = \[['"]daily['"], ['"]alerts['"], ['"]details['"], ['"]settings['"]\]/)
+  assert.match(source, /scrollableViews\.includes\(activeView\)[\s\S]*?jsx\(ScrollArea/)
+  assert.match(source, /!settings\.location \? jsx\(ScrollArea,[\s\S]*?jsx\(LocationSetup/)
+  assert.match(source, /const panel = jsxs\(['"]div['"]/)
+})
+
 test('shows setup current hourly daily details settings and refresh controls', () => {
   for (const label of ['Choose location', 'Current conditions', 'Next 24 hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh now']) {
     assert.ok(source.includes(label), `missing UI label: ${label}`)

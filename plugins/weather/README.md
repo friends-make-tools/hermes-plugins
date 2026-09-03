@@ -1,14 +1,20 @@
 # Weather
 
 This unified Hermes plugin adds a weather chip to `statusBar.right`.
-The chip opens a native popover with these views:
+The chip opens one compact native popover.
+A six-button row shows one view at a time:
 
-- Manual location search
-- Current conditions and details
+- Current conditions
 - The next 24 hours
 - A seven-day forecast
 - Official Canadian weather alerts
-- Units, refresh, and notification settings
+- Weather details
+- Location, units, refresh, and notification settings
+
+Current is the default view.
+Manual refresh stays in the popover header.
+The first-use view keeps manual location setup compact.
+After setup, location search and removal stay in Settings.
 
 Open-Meteo supplies location search and forecast data.
 Environment and Climate Change Canada supplies official Canadian alerts.
