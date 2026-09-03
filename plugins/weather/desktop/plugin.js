@@ -27,6 +27,7 @@ const SETTINGS_VERSION = 1
 const SETTINGS_KEY = 'settings'
 const ALERT_STATE_KEY = 'alert-state'
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60]
+const VIEW_BODY_CLASS = 'h-[min(16rem,55vh)] max-h-[min(16rem,55vh)] w-full pr-2'
 const views = [
   { id: 'current', label: 'Current' },
   { id: 'hourly', label: 'Hourly' },
@@ -520,20 +521,20 @@ function WeatherChip() {
       activePanel = jsx(CurrentConditions, { data, units: settings.units })
   }
 
-  const scrollableViews = ['daily', 'alerts', 'details', 'settings']
-  const activeViewContent = scrollableViews.includes(activeView)
-    ? jsx(ScrollArea, { className: 'h-full pr-2', children: activePanel })
-    : activePanel
+  const activeViewContent = jsx(ScrollArea, {
+    className: VIEW_BODY_CLASS,
+    children: activePanel
+  })
 
   const panel = jsxs('div', {
-    className: 'flex h-[24rem] max-h-[min(24rem,80vh)] w-[min(24rem,calc(100vw-1rem))] overflow-hidden p-3',
+    className: 'w-[min(24rem,calc(100vw-1rem))] p-3',
     children: [
       !settings.location ? jsx(ScrollArea, {
-        className: 'h-full w-full',
+        className: VIEW_BODY_CLASS,
         children: jsx(LocationSetup, { onSelect: selectLocation })
       }) : null,
       settings.location ? jsxs('div', {
-        className: 'flex h-full min-h-0 w-full flex-col gap-3',
+        className: 'flex w-full flex-col gap-3',
         children: [
           jsxs('div', {
             className: 'flex items-center justify-between gap-2',
@@ -572,7 +573,7 @@ function WeatherChip() {
             id: 'weather-active-panel',
             role: 'tabpanel',
             'aria-label': `${activeView} weather view`,
-            className: 'min-h-0 flex-1 overflow-hidden',
+            className: 'overflow-hidden',
             children: activeViewContent
           }),
           jsx(Separator, {}),

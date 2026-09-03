@@ -13,6 +13,9 @@ A six-button row shows one view at a time:
 
 Current is the default view.
 Manual refresh stays in the popover header.
+All six views use one shared body with a 16-rem or 55-viewport-height maximum.
+The body scrolls vertically when its active view needs more space.
+The header, view buttons, refresh control, and attribution stay outside that body.
 The first-use view keeps manual location setup compact.
 After setup, location search and removal stay in Settings.
 

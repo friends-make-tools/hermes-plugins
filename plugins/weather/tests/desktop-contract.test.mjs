@@ -125,12 +125,17 @@ test('keeps location controls in a distinct Settings view', () => {
   assert.doesNotMatch(currentCase, /Settings|LocationSetup|Remove location/)
 })
 
-test('bounds the compact popover and scrolls only overflowing views', () => {
-  assert.match(source, /className: ['"][^'"]*h-\[24rem\][^'"]*max-h-\[min\(24rem,80vh\)\]/)
-  assert.match(source, /const scrollableViews = \[['"]daily['"], ['"]alerts['"], ['"]details['"], ['"]settings['"]\]/)
-  assert.match(source, /scrollableViews\.includes\(activeView\)[\s\S]*?jsx\(ScrollArea/)
-  assert.match(source, /!settings\.location \? jsx\(ScrollArea,[\s\S]*?jsx\(LocationSetup/)
-  assert.match(source, /const panel = jsxs\(['"]div['"]/)
+test('bounds every view with one shared scrolling body outside fixed controls', () => {
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const panel = weatherChip.slice(weatherChip.indexOf("const panel = jsxs('div'"))
+  const alertCase = weatherChip.slice(weatherChip.indexOf("case 'alerts':"), weatherChip.indexOf("case 'details':"))
+
+  assert.doesNotMatch(weatherChip, /scrollableViews/)
+  assert.match(source, /const VIEW_BODY_CLASS = ['"][^'"]*h-\[min\(16rem,55vh\)\][^'"]*max-h-\[min\(16rem,55vh\)\][^'"]*['"]/)
+  assert.match(weatherChip, /const activeViewContent = jsx\(ScrollArea, \{[\s\S]*?className: VIEW_BODY_CLASS[\s\S]*?children: activePanel[\s\S]*?\}\)/)
+  assert.match(alertCase, /activePanel = jsx\(Alerts, \{ data \}\)/)
+  assert.match(panel, /Refresh now[\s\S]*?role: ['"]tablist['"][\s\S]*?id: ['"]weather-active-panel['"][\s\S]*?children: activeViewContent[\s\S]*?Weather data by Open-Meteo/)
+  assert.doesNotMatch(panel, /h-\[24rem\]|max-h-\[min\(24rem,80vh\)\]/)
 })
 
 test('shows setup current hourly daily details settings and refresh controls', () => {

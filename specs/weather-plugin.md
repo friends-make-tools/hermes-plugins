@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.1
+Version: 1.2
 Source plan date: 2026-09-02
 
 ## Decision
@@ -117,7 +117,6 @@ Render a stable-width chip with:
 - Stale marker after a failed refresh
 
 Use one `PopoverContent` above the chip and align it to the right.
-Bound the popover to a compact 24-rem height or 80 percent of the viewport.
 Keep the selected location and manual refresh control in the fixed header.
 Keep provider attribution in the fixed footer.
 
@@ -135,8 +134,11 @@ Make Current the default view.
 Keep initial manual location setup in a compact first-use pane.
 After setup, show location search and removal only in Settings.
 Do not put Settings controls in the Current view.
-Use `ScrollArea` inside Daily, Alerts, Details, and Settings when their content exceeds the bounded body.
-Keep Current unscrolled and keep Hourly on its horizontal forecast strip.
+Render all six views inside one shared `ScrollArea` body.
+Give that body a maximum height of 16 rem or 55 percent of the viewport, whichever is smaller.
+Use internal vertical scrolling whenever any view exceeds that maximum.
+Keep the header, view navigation, manual refresh control, and footer outside the scrolling body.
+Keep the Hourly view's horizontal forecast strip inside the shared vertical body.
 
 Use one React Query weather query shared by the chip and every view.
 Key it by plugin ID, location coordinates, and units.
@@ -192,7 +194,7 @@ Transmit only manual search text, selected coordinates, and forecast settings.
 ## Verification
 
 Backend tests must cover validation, normalization, WMO mapping, cache behavior, sanitized failures, response bounds, alert normalization, and provider independence.
-Desktop contract tests must cover identity, status area, native popover, six-view navigation, one active view, separate Settings, bounded height, per-view scrolling, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, attribution, and theme safety.
+Desktop contract tests must cover identity, status area, native popover, six-view navigation, one active view, separate Settings, one shared bounded scrolling body, fixed controls outside that body, one query, `ctx.rest`, settings-aware keys, no custom polling, stale behavior, persistence, deduplication, notification disable, attribution, and theme safety.
 
 Run Python tests, Node contract tests, Python compilation, and JavaScript syntax checks.
 Run controlled live location and weather calls when the network allows.
