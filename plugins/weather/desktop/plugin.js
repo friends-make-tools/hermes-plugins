@@ -28,7 +28,7 @@ const SETTINGS_VERSION = 1
 const SETTINGS_KEY = 'settings'
 const ALERT_STATE_KEY = 'alert-state'
 const REFRESH_OPTIONS = [5, 10, 15, 30, 60]
-const POPOVER_SQUARE_CLASS = 'h-[min(24rem,calc(100vw-1rem),calc(100vh-1rem))] w-[min(24rem,calc(100vw-1rem),calc(100vh-1rem))] p-0'
+const POPOVER_SQUARE_SIZE = 'min(24rem, calc(100vw - 1rem), calc(100vh - 1rem))'
 const views = [
   { id: 'current', label: 'Current', icon: 'circle-large-outline' },
   { id: 'hourly', label: 'Hourly', icon: 'history' },
@@ -566,8 +566,10 @@ function WeatherChip() {
 
   const body = jsx('main', {
     className: 'min-h-0 flex-1 overflow-hidden',
+    style: { flex: '1 1 0%', minHeight: 0, overflow: 'hidden' },
     children: jsx(ScrollArea, {
       className: 'h-full w-full',
+      style: { width: '100%', height: '100%' },
       children: viewContent
     })
   })
@@ -620,6 +622,13 @@ function WeatherChip() {
 
   const panel = jsxs('div', {
     className: 'flex h-full min-h-0 flex-col',
+    style: {
+      display: 'flex',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+      flexDirection: 'column'
+    },
     children: [header, body, attribution, tabBar]
   })
 
@@ -643,7 +652,11 @@ function WeatherChip() {
           side: 'top',
           align: 'end',
           sideOffset: 6,
-          className: POPOVER_SQUARE_CLASS,
+          className: 'p-0',
+          style: {
+            width: POPOVER_SQUARE_SIZE,
+            height: POPOVER_SQUARE_SIZE
+          },
           children: panel
         })
       ]

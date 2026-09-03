@@ -2,6 +2,9 @@
 
 This unified Hermes plugin adds a weather chip to `statusBar.right`.
 The chip opens a responsive square native popover.
+Explicit inline dimensions keep the popover square in uncompiled desktop plugins.
+A full-height flex shell and bounded `ScrollArea` also use inline geometry.
+Critical geometry does not depend on Tailwind arbitrary classes.
 A fixed six-item bottom tab bar shows one view at a time:
 
 - Current conditions

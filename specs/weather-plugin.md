@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.3
+Version: 1.4
 Source plan date: 2026-09-02
 
 ## Decision
@@ -118,6 +118,8 @@ Render a stable-width chip with:
 
 Use one responsive square `PopoverContent` above the chip and align it to the right.
 Set its width and height to the same viewport-bounded value.
+Set both dimensions with explicit inline styles because desktop plugins load as uncompiled ESM.
+Do not use Tailwind arbitrary classes for critical popover or scrolling geometry.
 Use a full-height column with a fixed header, bounded scrolling body, attribution footer, and bottom tab bar.
 Keep the selected location and icon-only Refresh control in the fixed header.
 Use the native ghost Button and a supported Refresh Codicon.
@@ -144,6 +146,7 @@ Do not put Settings controls in the Current view.
 Render all six views inside one shared `ScrollArea` body.
 Give the middle region `min-h-0`, flexible height, and overflow containment.
 Give its `ScrollArea` the full bounded width and height.
+Back the shell, middle-region, and `ScrollArea` geometry with explicit inline styles.
 Use internal vertical scrolling whenever any view exceeds the available middle region.
 Keep the header, attribution, and bottom tab bar outside the scrolling body.
 Keep the Hourly view's horizontal forecast strip inside the shared vertical body.

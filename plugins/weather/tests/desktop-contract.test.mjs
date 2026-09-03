@@ -19,15 +19,20 @@ test('uses a native popover above the chip', () => {
   assert.match(source, /align:\s*['"]end['"]/)
 })
 
-test('sizes PopoverContent as a responsive square', () => {
-  const sizeClass = source.match(/const POPOVER_SQUARE_CLASS = ['"]([^'"]+)['"]/)?.[1]
-  assert.ok(sizeClass, 'missing responsive square size class')
+test('uses inline geometry for the responsive square and scroll containment', () => {
+  const squareSize = source.match(/const POPOVER_SQUARE_SIZE = ['"]([^'"]+)['"]/)?.[1]
+  assert.equal(squareSize, 'min(24rem, calc(100vw - 1rem), calc(100vh - 1rem))')
 
-  const height = sizeClass.match(/h-\[([^\]]+)\]/)?.[1]
-  const width = sizeClass.match(/w-\[([^\]]+)\]/)?.[1]
-  assert.equal(height, width)
-  assert.equal(width, 'min(24rem,calc(100vw-1rem),calc(100vh-1rem))')
-  assert.match(source, /jsx\(PopoverContent, \{[\s\S]*?className: POPOVER_SQUARE_CLASS[\s\S]*?children: panel/)
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+  const body = weatherChip.slice(weatherChip.indexOf("const body = jsx('main'"), weatherChip.indexOf('const attribution ='))
+  const panel = weatherChip.slice(weatherChip.indexOf("const panel = jsxs('div'"), weatherChip.indexOf('return jsx(Popover'))
+  const popoverContent = weatherChip.slice(weatherChip.indexOf('jsx(PopoverContent'))
+
+  assert.match(popoverContent, /style: \{\s*width: POPOVER_SQUARE_SIZE,\s*height: POPOVER_SQUARE_SIZE\s*\}/)
+  assert.match(panel, /style: \{\s*display: ['"]flex['"],\s*height: ['"]100%['"],\s*minHeight: 0,\s*overflow: ['"]hidden['"],\s*flexDirection: ['"]column['"]\s*\}/)
+  assert.match(body, /style: \{ flex: ['"]1 1 0%['"], minHeight: 0, overflow: ['"]hidden['"] \}/)
+  assert.match(body, /jsx\(ScrollArea, \{[\s\S]*?style: \{ width: ['"]100%['"], height: ['"]100%['"] \}/)
+  assert.doesNotMatch(source, /POPOVER_SQUARE_CLASS|[hw]-\[min\(/)
 })
 
 test('uses native Hermes controls for settings', () => {
