@@ -184,21 +184,65 @@ test('orders a fixed header, bounded shared body, attribution, and bottom tabs',
 })
 
 test('shows setup combined forecast details settings and refresh controls', () => {
-  for (const label of ['Choose location', 'Current forecast', 'Next six hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh weather']) {
+  for (const label of ['Choose location', 'Current conditions', 'Next six hours', 'Seven-day forecast', 'Details', 'Settings', 'Refresh weather']) {
     assert.ok(source.includes(label), `missing UI label: ${label}`)
   }
 })
 
-test('Forecast combines a current hero, metrics, six hours, and seven days', () => {
+test('uses a large current-condition hero icon', () => {
+  const hero = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
+
+  assert.match(hero, /className: ['"][^'"]*text-6xl[^'"]*['"]/)
+  assert.doesNotMatch(hero, /text-4xl/)
+})
+
+test('keeps icon-based current metrics inside the hero', () => {
+  const hero = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
+  const forecast = source.slice(source.indexOf('function Forecast'), source.indexOf('function Details'))
+
+  for (const field of ['precipitation', 'humidity', 'windSpeed']) {
+    assert.ok(hero.includes(`current.${field}`), `current hero omits ${field}`)
+  }
+  assert.match(hero, /const metrics = \[/)
+  assert.match(hero, /metrics\.map\(\(\{ label, icon, value \}\)/)
+  assert.match(hero, /grid grid-cols-3/)
+  assert.match(hero, /'aria-label': `\$\{label\}: \$\{value\}`/)
+  assert.match(hero, /title: `\$\{label\}: \$\{value\}`/)
+  assert.match(hero, /'aria-hidden': true, children: icon/)
+  assert.doesNotMatch(source, /Current metrics|function CurrentMetrics/)
+  assert.doesNotMatch(forecast, /jsx\(CurrentMetrics/)
+})
+
+test('formats the update date and time in the selected IANA timezone', () => {
+  const helpers = source.slice(source.indexOf('function formatTime'), source.indexOf('function isFiniteNumber'))
+  const helperModule = Function(`${helpers}; return { isValidDateValue, localDateTime }`)()
+  const hero = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
+  const forecast = source.slice(source.indexOf('function Forecast'), source.indexOf('function Details'))
+  const weatherChip = source.slice(source.indexOf('function WeatherChip'), source.indexOf('export default'))
+
+  assert.notEqual(
+    helperModule.localDateTime('2026-09-02T18:00:00Z', 'America/Toronto'),
+    helperModule.localDateTime('2026-09-02T18:00:00Z', 'Asia/Tokyo')
+  )
+  assert.equal(helperModule.localDateTime('not-a-date', 'America/Toronto'), '—')
+  assert.equal(helperModule.isValidDateValue('not-a-date'), false)
+  assert.match(helpers, /function localDateTime\(value, timeZone\)/)
+  assert.match(helpers, /Intl\.DateTimeFormat\(\[\], options\)\.format\(date\)/)
+  for (const part of ["weekday: 'short'", "month: 'short'", "day: 'numeric'", "hour: 'numeric'", "minute: '2-digit'"]) {
+    assert.ok(helpers.includes(part), `local date and time omits ${part}`)
+  }
+  assert.match(hero, /localDateTime\(updatedAt, timeZone\)/)
+  assert.match(hero, /Local time in \$\{timeZone\}/)
+  assert.match(forecast, /isValidDateValue\(data\?\.sourceUpdatedAt\)\s*\? data\.sourceUpdatedAt\s*:\s*data\?\.fetchedAt/)
+  assert.match(weatherChip, /timeZone:\s*settings\.location\?\.timezone \|\| data\?\.timezone \|\| ['"]UTC['"]/)
+})
+
+test('Forecast combines its current hero, six hours, and seven days', () => {
   const forecast = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function Details'))
 
   assert.match(forecast, /function CurrentHero/)
   for (const field of ['icon', 'temperature', 'condition', 'apparentTemperature']) {
     assert.ok(forecast.includes(`current.${field}`), `current hero omits ${field}`)
-  }
-  assert.match(forecast, /function CurrentMetrics/)
-  for (const field of ['precipitation', 'humidity', 'windSpeed']) {
-    assert.ok(forecast.includes(`current.${field}`), `current metrics omit ${field}`)
   }
   assert.match(forecast, /function NextSixHours/)
   assert.match(forecast, /\.slice\(0, 6\)/)
@@ -208,7 +252,6 @@ test('Forecast combines a current hero, metrics, six hours, and seven days', () 
   assert.match(forecast, /whitespace-nowrap/)
   assert.match(forecast, /function Forecast/)
   assert.match(forecast, /jsx\(CurrentHero/)
-  assert.match(forecast, /jsx\(CurrentMetrics/)
   assert.match(forecast, /jsx\(NextSixHours/)
   assert.match(forecast, /jsx\(SevenDayForecast/)
 })
@@ -221,13 +264,29 @@ test('shows hourly rain only for finite numeric probabilities', () => {
   assert.match(hourly, /isFiniteNumber\(item\.precipitationProbability\)/)
 })
 
-test('daily rows show high low rain and wind on one compact line', () => {
+test('daily rows use compact aligned icon and value cells', () => {
   const daily = source.slice(source.indexOf('function SevenDayForecast'), source.indexOf('function Forecast'))
   for (const field of ['temperatureMax', 'temperatureMin', 'precipitationProbability', 'precipitation', 'windSpeed']) {
     assert.ok(daily.includes(`item.${field}`), `daily rows omit ${field}`)
   }
-  assert.match(daily, /text-xs/)
-  assert.doesNotMatch(daily, /text-\[0\.6875rem\]/)
+  assert.match(daily, /dayName\(item\.date\)/)
+  assert.match(daily, /compactDate\(item\.date\)/)
+  assert.match(daily, /isFiniteNumber\(item\.precipitationProbability\)[\s\S]*?isFiniteNumber\(item\.precipitation\)/)
+  assert.match(daily, /className: ['"][^'"]*whitespace-nowrap[^'"]*py-1[^'"]*text-xs[^'"]*['"]/)
+  assert.doesNotMatch(daily, /py-1\.5|text-\[0\.6875rem\]/)
+  assert.doesNotMatch(daily, /children: `(?:Rain|Wind) /)
+})
+
+test('daily icon cells preserve accessible condition rain and wind meanings', () => {
+  const daily = source.slice(source.indexOf('function SevenDayForecast'), source.indexOf('function Forecast'))
+
+  assert.match(daily, /'aria-label': item\.condition/)
+  assert.match(daily, /title: item\.condition/)
+  assert.match(daily, /'aria-label': `Rain: \$\{rainValue\}`/)
+  assert.match(daily, /title: `Rain: \$\{rainValue\}`/)
+  assert.match(daily, /'aria-label': `Wind: \$\{windValue\}`/)
+  assert.match(daily, /title: `Wind: \$\{windValue\}`/)
+  assert.ok((daily.match(/'aria-hidden': true/g) || []).length >= 2)
 })
 
 test('shows one-line dynamic active-provider attribution with accessible source links', () => {

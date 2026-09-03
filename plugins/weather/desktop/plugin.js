@@ -152,6 +152,31 @@ function hourTime(value) {
   return formatTime(value, { hour: 'numeric' })
 }
 
+function isValidDateValue(value) {
+  const date = value ? new Date(value) : null
+  return Boolean(date && !Number.isNaN(date.getTime()))
+}
+
+function localDateTime(value, timeZone) {
+  const hasExplicitZone = typeof value === 'string' && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+  const normalizedValue = typeof value === 'string' && !hasExplicitZone ? `${value}Z` : value
+  const date = normalizedValue ? new Date(normalizedValue) : null
+  if (!date || Number.isNaN(date.getTime())) return '—'
+  const options = {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: hasExplicitZone ? timeZone : 'UTC'
+  }
+  try {
+    return new Intl.DateTimeFormat([], options).format(date)
+  } catch {
+    return new Intl.DateTimeFormat([], { ...options, timeZone: 'UTC' }).format(date)
+  }
+}
+
 function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -166,6 +191,13 @@ function dayName(value) {
   const date = value ? new Date(`${value}T12:00:00`) : null
   return date && !Number.isNaN(date.getTime())
     ? date.toLocaleDateString([], { weekday: 'short' })
+    : '—'
+}
+
+function compactDate(value) {
+  const date = value ? new Date(`${value}T12:00:00`) : null
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString([], { month: 'numeric', day: 'numeric' })
     : '—'
 }
 
@@ -293,18 +325,24 @@ function Alerts({ data }) {
   }))
 }
 
-function CurrentHero({ current, units, error }) {
+function CurrentHero({ current, units, error, updatedAt, timeZone }) {
   if (!current) {
-    return section('Current forecast', jsx('p', {
+    return section('Current conditions', jsx('p', {
       className: 'text-xs text-(--ui-text-secondary)',
       children: error || 'Forecast unavailable.'
     }))
   }
-  return section('Current forecast', jsxs('div', {
+  const { amountUnit, speedUnit } = unitLabels(units)
+  const metrics = [
+    { label: 'Rain', icon: '☂', value: `${numberText(current.precipitation, 1)} ${amountUnit}` },
+    { label: 'Humidity', icon: '💧', value: `${numberText(current.humidity)}%` },
+    { label: 'Wind', icon: '↝', value: `${numberText(current.windSpeed)} ${speedUnit}` }
+  ]
+  return section('Current conditions', jsxs('div', {
     className: 'grid grid-cols-2 items-center gap-3 rounded-lg border border-(--ui-stroke-secondary) p-3',
     children: [
       jsx('div', {
-        className: 'text-center text-4xl',
+        className: 'text-center text-6xl',
         'aria-hidden': true,
         children: current.icon
       }),
@@ -316,30 +354,27 @@ function CurrentHero({ current, units, error }) {
           jsx('div', {
             className: 'text-xs text-(--ui-text-tertiary)',
             children: `Feels like ${temperature(current.apparentTemperature, units)}`
+          }),
+          jsx('div', {
+            className: 'mt-1 text-xs text-(--ui-text-tertiary)',
+            title: `Local time in ${timeZone}`,
+            children: localDateTime(updatedAt, timeZone)
           })
         ]
+      }),
+      jsx('div', {
+        className: 'col-span-2 grid grid-cols-3 border-t border-(--ui-stroke-secondary) pt-2',
+        children: metrics.map(({ label, icon, value }) => jsxs('span', {
+          className: 'flex min-w-0 items-center justify-center gap-1 text-xs',
+          'aria-label': `${label}: ${value}`,
+          title: `${label}: ${value}`,
+          children: [
+            jsx('span', { className: 'text-(--ui-text-tertiary)', 'aria-hidden': true, children: icon }),
+            jsx('strong', { className: 'truncate font-medium text-(--ui-text-primary)', children: value })
+          ]
+        }, label))
       })
     ]
-  }))
-}
-
-function CurrentMetrics({ current, units }) {
-  if (!current) return null
-  const { amountUnit, speedUnit } = unitLabels(units)
-  const metrics = [
-    ['Rain', `${numberText(current.precipitation, 1)} ${amountUnit}`],
-    ['Humidity', `${numberText(current.humidity)}%`],
-    ['Wind', `${numberText(current.windSpeed)} ${speedUnit}`]
-  ]
-  return section('Current metrics', jsx('div', {
-    className: 'grid grid-cols-3 overflow-hidden rounded-md border border-(--ui-stroke-secondary)',
-    children: metrics.map(([label, value]) => jsxs('div', {
-      className: 'flex min-w-0 flex-col items-center gap-0.5 border-r border-(--ui-stroke-secondary) px-1 py-2 text-xs last:border-r-0',
-      children: [
-        jsx('span', { className: 'text-(--ui-text-tertiary)', children: label }),
-        jsx('strong', { className: 'truncate font-medium text-(--ui-text-primary)', children: value })
-      ]
-    }, label))
   }))
 }
 
@@ -364,39 +399,75 @@ function SevenDayForecast({ items, units }) {
   const { amountUnit, speedUnit } = unitLabels(units)
   return section('Seven-day forecast', jsx('div', {
     className: 'overflow-hidden rounded-md border border-(--ui-stroke-secondary)',
-    children: (items || []).slice(0, 7).map(item => jsxs('div', {
-      className: 'flex min-w-0 items-center gap-2 whitespace-nowrap border-b border-(--ui-stroke-secondary) px-2 py-1.5 text-xs last:border-b-0',
-      children: [
-        jsx('span', { className: 'w-8 shrink-0 font-medium', children: dayName(item.date) }),
-        jsx('span', { className: 'w-5 shrink-0', 'aria-hidden': true, children: item.icon }),
-        jsxs('span', {
-          className: 'w-24 shrink-0',
-          children: [
-            jsx('strong', { className: 'font-medium', children: temperature(item.temperatureMax, units) }),
-            ' / ',
-            jsx('span', { className: 'text-(--ui-text-secondary)', children: temperature(item.temperatureMin, units) })
-          ]
-        }),
-        jsx('span', {
-          className: 'min-w-0 flex-1 truncate text-(--ui-text-tertiary)',
-          children: `Rain ${numberText(item.precipitationProbability)}% · ${numberText(item.precipitation, 1)} ${amountUnit}`
-        }),
-        jsx('span', {
-          className: 'w-20 shrink-0 text-right text-(--ui-text-secondary)',
-          children: `Wind ${numberText(item.windSpeed)} ${speedUnit}`
-        })
-      ]
-    }, item.date))
+    children: (items || []).slice(0, 7).map(item => {
+      const rainValue = isFiniteNumber(item.precipitationProbability)
+        ? `${numberText(item.precipitationProbability)}%`
+        : isFiniteNumber(item.precipitation)
+          ? `${numberText(item.precipitation, 1)} ${amountUnit}`
+          : '—'
+      const windValue = isFiniteNumber(item.windSpeed)
+        ? `${numberText(item.windSpeed)} ${speedUnit}`
+        : '—'
+      const highValue = temperature(item.temperatureMax, units)
+      const lowValue = temperature(item.temperatureMin, units)
+      return jsxs('div', {
+        className: 'flex min-w-0 items-center gap-1 whitespace-nowrap border-b border-(--ui-stroke-secondary) px-2 py-1 text-xs last:border-b-0',
+        children: [
+          jsxs('span', {
+            className: 'flex w-16 shrink-0 gap-1',
+            children: [
+              jsx('strong', { className: 'font-medium', children: dayName(item.date) }),
+              jsx('span', { className: 'text-(--ui-text-tertiary)', children: compactDate(item.date) })
+            ]
+          }),
+          jsx('span', {
+            className: 'w-5 shrink-0 text-center',
+            role: 'img',
+            'aria-label': item.condition,
+            title: item.condition,
+            children: item.icon
+          }),
+          jsxs('span', {
+            className: 'w-20 shrink-0',
+            'aria-label': `High ${highValue}, low ${lowValue}`,
+            title: `High ${highValue}, low ${lowValue}`,
+            children: [
+              jsx('strong', { className: 'font-medium', children: highValue }),
+              ' / ',
+              jsx('span', { className: 'text-(--ui-text-secondary)', children: lowValue })
+            ]
+          }),
+          jsxs('span', {
+            className: 'flex min-w-0 flex-1 items-center gap-1 truncate text-(--ui-text-tertiary)',
+            'aria-label': `Rain: ${rainValue}`,
+            title: `Rain: ${rainValue}`,
+            children: [
+              jsx('span', { 'aria-hidden': true, children: '☂' }),
+              jsx('span', { className: 'truncate', children: rainValue })
+            ]
+          }),
+          jsxs('span', {
+            className: 'flex w-20 shrink-0 items-center justify-end gap-1 text-(--ui-text-secondary)',
+            'aria-label': `Wind: ${windValue}`,
+            title: `Wind: ${windValue}`,
+            children: [
+              jsx('span', { 'aria-hidden': true, children: '↝' }),
+              jsx('span', { children: windValue })
+            ]
+          })
+        ]
+      }, item.date)
+    })
   }))
 }
 
-function Forecast({ data, units }) {
+function Forecast({ data, units, timeZone }) {
   const current = data?.current
+  const updatedAt = isValidDateValue(data?.sourceUpdatedAt) ? data.sourceUpdatedAt : data?.fetchedAt
   return jsxs('div', {
     className: 'flex flex-col gap-3',
     children: [
-      jsx(CurrentHero, { current, units, error: data?.provider?.forecast?.error }),
-      jsx(CurrentMetrics, { current, units }),
+      jsx(CurrentHero, { current, units, error: data?.provider?.forecast?.error, updatedAt, timeZone }),
       jsx(NextSixHours, { items: data?.hourly, units }),
       jsx(SevenDayForecast, { items: data?.daily, units })
     ]
@@ -576,7 +647,11 @@ function WeatherChip() {
       break
     case 'forecast':
     default:
-      activePanel = jsx(Forecast, { data, units: settings.units })
+      activePanel = jsx(Forecast, {
+        data,
+        units: settings.units,
+        timeZone: settings.location?.timezone || data?.timezone || 'UTC'
+      })
   }
 
   const viewContent = !settings.location && activeView === 'forecast'

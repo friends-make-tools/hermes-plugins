@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.7
+Version: 1.8
 Source plan date: 2026-09-02
 
 ## Decision
@@ -166,12 +166,18 @@ Use internal vertical scrolling whenever any view exceeds the available middle r
 Keep the header, attribution, and bottom tab bar outside the scrolling body.
 
 Combine all forecast layers in the Forecast view.
-Place a balanced current hero first with its icon, rounded temperature, condition, and feels-like value.
-Follow it with three aligned current metrics for rain, humidity, and wind.
+Place a balanced current hero first with a large icon, rounded temperature, condition, and feels-like value.
+Show the local source update date and time in the selected location's IANA timezone.
+Use a valid `sourceUpdatedAt` value, then fall back to `fetchedAt`.
+Keep three icon-based rain, humidity, and wind metrics inside the hero.
+Give icon-only metric cells accessible names and tooltips.
 Show the next six hours as six equal compact cells on one row.
 Each hourly cell shows its hour, icon, temperature, and available rain probability.
 Show seven dense, single-line daily rows after the hourly strip.
-Keep day, icon, high and low, rain, and wind in one consistent scan order.
+Keep weekday, compact date, icon, high and low, rain, and wind in one consistent scan order.
+Show daily rain probability when available, then fall back to the rain amount.
+Use icons instead of repeated visual Rain and Wind labels.
+Keep full daily meanings in accessible labels and tooltips.
 Use muted theme text for secondary values.
 Use at least `text-xs` for primary compact labels.
 Do not use separate Current, Hourly, or Daily navigation states.

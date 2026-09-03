@@ -7,16 +7,17 @@ A full-height flex shell and bounded `ScrollArea` also use inline geometry.
 Critical geometry does not depend on Tailwind arbitrary classes.
 A fixed four-item bottom tab bar shows one view at a time:
 
-- A combined Forecast with current conditions, metrics, six hours, and seven days
+- A combined Forecast with a current hero, six hours, and seven compact days
 - Official Canadian weather alerts
 - Weather details
 - Location, units, refresh, and notification settings
 
 Forecast is the default view.
-Its current hero shows the icon, rounded temperature, condition, and feels-like value.
-A three-cell metrics row shows rain, humidity, and wind.
+Its current hero shows a large icon, rounded temperature, condition, and feels-like value.
+The hero also shows local update time and icon-based rain, humidity, and wind metrics.
 Six equal cells show the next six hours in one row.
-Seven dense daily rows show high, low, rain, and wind values.
+Seven dense daily rows align weekday, date, condition, high, low, rain, and wind values.
+Daily rain shows probability when available and amount otherwise.
 An icon-only Refresh control stays in the fixed popover header.
 All four views use one shared bounded and vertically scrolling body.
 The body fills the space between the fixed header and fixed footer controls.
