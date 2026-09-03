@@ -55,6 +55,12 @@ Forecast and alert provider states remain separate.
 An alert outage does not remove forecast data.
 A forecast outage does not hide successfully retrieved official alerts.
 
+Provider failures use short, fixed public messages.
+Non-JSON error bodies map to provider unavailability, including Open-Meteo streaming timeouts and HTML error pages.
+The backend never returns raw provider text, HTML, stack traces, or request URLs.
+It keeps an upstream response status in `statusCode` when one is available.
+Malformed JSON-looking bodies still report an invalid JSON error.
+
 ## Install and enable
 
 Copy the `plugins/weather` folder into the Hermes application plugin folder.

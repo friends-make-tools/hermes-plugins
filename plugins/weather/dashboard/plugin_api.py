@@ -139,6 +139,8 @@ def fetch_json(url: str) -> dict[str, Any]:
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        if not raw.lstrip().startswith((b"{", b"[")):
+            raise UpstreamError(f"{label} is unavailable", status) from exc
         raise UpstreamError(f"{label} returned invalid JSON", status) from exc
     if not isinstance(payload, dict):
         raise UpstreamError(f"{label} returned invalid data", status)

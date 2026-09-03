@@ -1,7 +1,7 @@
 # Hermes Desktop Weather Plugin Specification
 
 Status: implemented
-Version: 1.4
+Version: 1.5
 Source plan date: 2026-09-02
 
 ## Decision
@@ -98,7 +98,12 @@ Read no more than 2,000,000 response bytes.
 Use a 60-second success cache.
 Do not cache exceptions or partial provider failures.
 Validate all query text, coordinates, units, country codes, and stored location fields.
-Return short public errors without response bodies, secrets, URLs, or stack traces.
+Return short public errors without raw provider text, HTML, response bodies, secrets, URLs, or stack traces.
+Classify non-JSON provider error bodies as provider unavailability.
+This rule includes Open-Meteo streaming timeout text and HTML error pages returned with HTTP 200.
+Preserve the upstream response status in `statusCode` when it is available.
+Keep the invalid JSON classification for malformed JSON-looking bodies.
+After leading whitespace, `{` and `[` identify JSON-looking bodies for this classification.
 
 ## Desktop contract
 

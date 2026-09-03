@@ -173,6 +173,34 @@ class TransportAndCachingTests(unittest.TestCase):
                         api.fetch_json(url)
         opened.assert_not_called()
 
+    def test_open_meteo_streaming_timeout_body_is_provider_unavailability(self):
+        response = _Response(b"Unexpected error while streaming data: timeoutReached")
+        with mock.patch.object(api.urllib.request, "urlopen", return_value=response):
+            with self.assertRaises(api.UpstreamError) as raised:
+                api.fetch_json("https://api.open-meteo.com/v1/forecast")
+
+        self.assertEqual(raised.exception.message, "Forecast service is unavailable")
+        self.assertEqual(raised.exception.status, 200)
+
+    def test_html_provider_error_body_is_sanitized_as_unavailability(self):
+        response = _Response(b"<html><body>stack trace at https://private.example</body></html>")
+        with mock.patch.object(api.urllib.request, "urlopen", return_value=response):
+            with self.assertRaises(api.UpstreamError) as raised:
+                api.fetch_json("https://api.open-meteo.com/v1/forecast")
+
+        self.assertEqual(raised.exception.message, "Forecast service is unavailable")
+        self.assertEqual(raised.exception.status, 200)
+        self.assertNotIn("private.example", str(raised.exception))
+
+    def test_malformed_json_looking_body_remains_invalid_json(self):
+        response = _Response(b'  {"current": ')
+        with mock.patch.object(api.urllib.request, "urlopen", return_value=response):
+            with self.assertRaises(api.UpstreamError) as raised:
+                api.fetch_json("https://api.open-meteo.com/v1/forecast")
+
+        self.assertEqual(raised.exception.message, "Forecast service returned invalid JSON")
+        self.assertEqual(raised.exception.status, 200)
+
     def test_success_is_cached_but_failures_are_not(self):
         calls = []
 
