@@ -5,6 +5,35 @@ import test from 'node:test'
 const pluginUrl = new URL('../desktop/plugin.js', import.meta.url)
 const source = readFileSync(pluginUrl, 'utf8')
 
+function renderCurrentHero(apparentTemperature) {
+  const numberHelpers = source.slice(source.indexOf('function numberText'), source.indexOf('function formatTime'))
+  const unitHelpers = source.slice(source.indexOf('function isFiniteNumber'), source.indexOf('function dayName'))
+  const heroSource = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
+  const element = (type, props) => ({ type, props })
+  const CurrentHero = Function(
+    'jsx',
+    'jsxs',
+    'section',
+    'localDateTime',
+    `${numberHelpers}\n${unitHelpers}\n${heroSource}\nreturn CurrentHero`
+  )(element, element, (title, children) => ({ title, children }), () => 'local time')
+
+  return CurrentHero({
+    current: {
+      apparentTemperature,
+      condition: 'Clear',
+      humidity: 50,
+      icon: '☀',
+      precipitation: 0,
+      temperature: 22,
+      windSpeed: 5
+    },
+    units: 'metric',
+    updatedAt: '2026-09-02T18:00:00Z',
+    timeZone: 'America/Toronto'
+  })
+}
+
 test('uses the fixed weather plugin identity and right status area', () => {
   assert.match(source, /const ID = ['"]weather['"]/)
   assert.match(source, /id:\s*ID/)
@@ -189,11 +218,23 @@ test('shows setup combined forecast details settings and refresh controls', () =
   }
 })
 
-test('uses a large current-condition hero icon', () => {
+test('uses explicit current-condition hero icon sizing next to the temperature', () => {
   const hero = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
 
-  assert.match(hero, /className: ['"][^'"]*text-6xl[^'"]*['"]/)
-  assert.doesNotMatch(hero, /text-4xl/)
+  assert.match(hero, /style: \{ gridTemplateColumns: ['"]auto minmax\(0, 1fr\)['"] \}/)
+  assert.match(hero, /style: \{ fontSize: ['"]3\.5rem['"], lineHeight: 1 \}/)
+  assert.doesNotMatch(hero, /\btext-(?:4|5|6|7|8|9)xl\b/)
+})
+
+test('suppresses feels-like text when apparent temperature is null', () => {
+  assert.doesNotMatch(JSON.stringify(renderCurrentHero(null)), /Feels like/)
+})
+
+test('displays a finite zero apparent temperature', () => {
+  const hero = source.slice(source.indexOf('function CurrentHero'), source.indexOf('function NextSixHours'))
+
+  assert.match(hero, /isFiniteNumber\(current\.apparentTemperature\)/)
+  assert.match(JSON.stringify(renderCurrentHero(0)), /Feels like 0°C/)
 })
 
 test('keeps icon-based current metrics inside the hero', () => {

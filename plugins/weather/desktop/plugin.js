@@ -339,10 +339,12 @@ function CurrentHero({ current, units, error, updatedAt, timeZone }) {
     { label: 'Wind', icon: '↝', value: `${numberText(current.windSpeed)} ${speedUnit}` }
   ]
   return section('Current conditions', jsxs('div', {
-    className: 'grid grid-cols-2 items-center gap-3 rounded-lg border border-(--ui-stroke-secondary) p-3',
+    className: 'grid items-center gap-3 rounded-lg border border-(--ui-stroke-secondary) p-3',
+    style: { gridTemplateColumns: 'auto minmax(0, 1fr)' },
     children: [
       jsx('div', {
-        className: 'text-center text-6xl',
+        className: 'text-center',
+        style: { fontSize: '3.5rem', lineHeight: 1 },
         'aria-hidden': true,
         children: current.icon
       }),
@@ -351,10 +353,12 @@ function CurrentHero({ current, units, error, updatedAt, timeZone }) {
         children: [
           jsx('div', { className: 'text-3xl font-semibold tracking-tight', children: temperature(current.temperature, units) }),
           jsx('div', { className: 'truncate text-sm text-(--ui-text-secondary)', children: current.condition }),
-          jsx('div', {
-            className: 'text-xs text-(--ui-text-tertiary)',
-            children: `Feels like ${temperature(current.apparentTemperature, units)}`
-          }),
+          isFiniteNumber(current.apparentTemperature)
+            ? jsx('div', {
+                className: 'text-xs text-(--ui-text-tertiary)',
+                children: `Feels like ${temperature(current.apparentTemperature, units)}`
+              })
+            : null,
           jsx('div', {
             className: 'mt-1 text-xs text-(--ui-text-tertiary)',
             title: `Local time in ${timeZone}`,
